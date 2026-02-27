@@ -1,0 +1,59 @@
+name: logic_lab
+description: "Logic Lab: Middle East Edition - مختبر المنطق"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.5.1
+
+  # Local storage
+  hive_flutter: ^1.1.0
+
+  # Navigation
+  go_router: ^13.2.1
+
+  # Charts (radar + line)
+  fl_chart: ^0.68.0
+
+  # Fonts (Arabic-aware)
+  google_fonts: ^6.2.1
+
+  # Animations
+  flutter_animate: ^4.5.0
+
+  # Audio (game sounds)
+  audioplayers: ^6.0.0
+
+  # Localization
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.0
+
+  # Icons
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Code generation
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.9
+
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  generate: true
+
+  assets:
+    - assets/sounds/
+    - assets/images/

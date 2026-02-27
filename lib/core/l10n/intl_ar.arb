@@ -1,0 +1,118 @@
+{
+  "@@locale": "ar",
+  "@@context": "Logic Lab Arabic Gulf dialect",
+
+  "appName": "مختبر المنطق",
+  "@appName": {"description": "App name"},
+
+  "startTest": "ابدأ الاختبار",
+  "playAgain": "العب مجددًا",
+  "backToDashboard": "العودة للرئيسية",
+  "settings": "الإعدادات",
+  "analytics": "التحليل",
+  "profile": "ملفي",
+
+  "lqScore": "مقياس المنطق",
+  "lqScoreLabel": "LQ",
+
+  "tierBeginner": "مبتدئ",
+  "tierIntermediate": "متوسط",
+  "tierProfessional": "محترف",
+  "tierMaster": "معلم",
+
+  "dimensionSpeed": "السرعة",
+  "dimensionMemory": "الذاكرة",
+  "dimensionSpaceLogic": "المنطق والمساحة",
+  "dimensionFocus": "التركيز",
+  "dimensionPerception": "الإدراك",
+
+  "gamesSection": "الألعاب",
+  "personalBest": "أفضل نتيجة",
+  "latestScore": "آخر نتيجة",
+  "average": "المعدل",
+
+  "schulteGridName": "شبكة شولت",
+  "schulteGridNameEn": "Schulte Grid",
+  "schulteGridDesc": "اضغط الأرقام بالترتيب من ١ إلى الأكبر بأسرع وقت ممكن",
+
+  "reactionTimeName": "وقت التفاعل",
+  "reactionTimeNameEn": "Reaction Time",
+  "reactionTimeDesc": "اضغط على اللون الصحيح بناءً على لون الخط — لا على معنى الكلمة",
+
+  "numberMemoryName": "ذاكرة الأرقام",
+  "numberMemoryNameEn": "Number Memory",
+  "numberMemoryDesc": "احفظ الأرقام التي ظهرت ثم أدخلها بنفس الترتيب",
+
+  "stroopTestName": "اختبار ستروب",
+  "stroopTestNameEn": "Stroop Test",
+  "stroopTestDesc": "اضغط على لون الخط، وليس على معنى الكلمة",
+
+  "visualMemoryName": "ذاكرة بصرية",
+  "visualMemoryNameEn": "Visual Memory",
+  "visualMemoryDesc": "تذكّر المربعات التي أضاءت وحدد مواقعها",
+
+  "sequenceMemoryName": "تسلسل",
+  "sequenceMemoryNameEn": "Sequence Memory",
+  "sequenceMemoryDesc": "كرّر التسلسل الذي أضاءت به المربعات",
+
+  "numberMatrixName": "اختبار المصفوفة الرقمية",
+  "numberMatrixNameEn": "Number Matrix",
+  "numberMatrixDesc": "اضغط الأرقام بالترتيب من ١ إلى ٢٥ بأسرع وقت",
+
+  "reverseMemoryName": "ذاكرة العكس",
+  "reverseMemoryNameEn": "Reverse Memory",
+  "reverseMemoryDesc": "احفظ الأرقام ثم أدخلها بالترتيب المعكوس",
+
+  "slidingPuzzleName": "لغز الأرقام",
+  "slidingPuzzleNameEn": "Sliding Puzzle",
+  "slidingPuzzleDesc": "رتّب الأرقام بالترتيب الصحيح بأقل عدد من الحركات",
+
+  "towerOfHanoiName": "برج هانو",
+  "towerOfHanoiNameEn": "Tower of Hanoi",
+  "towerOfHanoiDesc": "انقل جميع الأقراص من العمود الأيسر إلى الأيمن",
+
+  "tapByFontColor": "اضغط حسب لون الخط",
+  "correctLabel": "صحيح",
+  "wrongLabel": "خطأ",
+  "timeLabel": "الوقت",
+  "movesLabel": "الحركات",
+  "lengthLabel": "الطول",
+
+  "gameOver": "انتهت اللعبة",
+  "congratulations": "مبروك! 🎉",
+  "newRecord": "رقم قياسي جديد! 🏆",
+
+  "showingIn": "يظهر خلال",
+  "tapWhenReady": "اضغط عند ظهور اللون",
+  "enterDigits": "أدخل الأرقام",
+  "enterDigitsReverse": "أدخل الأرقام معكوسة",
+
+  "difficultyEasy": "سهل",
+  "difficultyMedium": "متوسط",
+  "difficultyHard": "صعب",
+
+  "soundEnabled": "الأصوات مفعّلة",
+  "soundDisabled": "الأصوات معطّلة",
+  "hapticsEnabled": "الاهتزاز مفعّل",
+  "hapticsDisabled": "الاهتزاز معطّل",
+  "languageLabel": "اللغة",
+  "fontSizeLabel": "حجم الخط",
+  "fontSizeSmall": "صغير",
+  "fontSizeMedium": "متوسط",
+  "fontSizeLarge": "كبير",
+  "resetData": "إعادة تعيين البيانات",
+  "resetDataConfirm": "هل أنت متأكد؟ ستُحذف جميع النتائج والسجلات.",
+  "resetDataConfirmButton": "نعم، أعد التعيين",
+  "cancel": "إلغاء",
+  "aboutApp": "عن التطبيق",
+  "privacyNote": "جميع البيانات محفوظة على جهازك فقط — لا نجمع أي معلومات.",
+  "version": "الإصدار",
+
+  "seconds": "ثانية",
+  "milliseconds": "مللي ثانية",
+  "digits": "أرقام",
+
+  "noDataYet": "لا توجد بيانات بعد — العب أولاً!",
+  "recentSessions": "الجلسات الأخيرة",
+  "allGames": "جميع الألعاب"
+}

@@ -1,0 +1,116 @@
+{
+  "@@locale": "en",
+
+  "appName": "Logic Lab",
+
+  "startTest": "Start Test",
+  "playAgain": "Play Again",
+  "backToDashboard": "Back to Home",
+  "settings": "Settings",
+  "analytics": "Analytics",
+  "profile": "Profile",
+
+  "lqScore": "Logic Quotient",
+  "lqScoreLabel": "LQ",
+
+  "tierBeginner": "Beginner",
+  "tierIntermediate": "Intermediate",
+  "tierProfessional": "Professional",
+  "tierMaster": "Master",
+
+  "dimensionSpeed": "Speed",
+  "dimensionMemory": "Memory",
+  "dimensionSpaceLogic": "Space & Logic",
+  "dimensionFocus": "Focus",
+  "dimensionPerception": "Perception",
+
+  "gamesSection": "Games",
+  "personalBest": "Best",
+  "latestScore": "Latest",
+  "average": "Average",
+
+  "schulteGridName": "Schulte Grid",
+  "schulteGridNameEn": "Schulte Grid",
+  "schulteGridDesc": "Tap numbers in order from 1 to max as fast as possible",
+
+  "reactionTimeName": "Reaction Time",
+  "reactionTimeNameEn": "Reaction Time",
+  "reactionTimeDesc": "Tap the correct color button based on the font color — not the word meaning",
+
+  "numberMemoryName": "Number Memory",
+  "numberMemoryNameEn": "Number Memory",
+  "numberMemoryDesc": "Remember the number sequence and type it back",
+
+  "stroopTestName": "Stroop Test",
+  "stroopTestNameEn": "Stroop Test",
+  "stroopTestDesc": "Tap the button matching the font color, not the word",
+
+  "visualMemoryName": "Visual Memory",
+  "visualMemoryNameEn": "Visual Memory",
+  "visualMemoryDesc": "Remember which squares lit up and tap them",
+
+  "sequenceMemoryName": "Sequence Memory",
+  "sequenceMemoryNameEn": "Sequence Memory",
+  "sequenceMemoryDesc": "Repeat the sequence of lit squares",
+
+  "numberMatrixName": "Number Matrix",
+  "numberMatrixNameEn": "Number Matrix",
+  "numberMatrixDesc": "Tap numbers 1 through 25 in order as fast as possible",
+
+  "reverseMemoryName": "Reverse Memory",
+  "reverseMemoryNameEn": "Reverse Memory",
+  "reverseMemoryDesc": "Remember the digits and type them in reverse order",
+
+  "slidingPuzzleName": "Sliding Puzzle",
+  "slidingPuzzleNameEn": "Sliding Puzzle",
+  "slidingPuzzleDesc": "Sort the number tiles in order with minimum moves",
+
+  "towerOfHanoiName": "Tower of Hanoi",
+  "towerOfHanoiNameEn": "Tower of Hanoi",
+  "towerOfHanoiDesc": "Move all discs from the left peg to the right peg",
+
+  "tapByFontColor": "Tap by font color",
+  "correctLabel": "Correct",
+  "wrongLabel": "Wrong",
+  "timeLabel": "Time",
+  "movesLabel": "Moves",
+  "lengthLabel": "Length",
+
+  "gameOver": "Game Over",
+  "congratulations": "Congratulations! 🎉",
+  "newRecord": "New Record! 🏆",
+
+  "showingIn": "Showing in",
+  "tapWhenReady": "Tap when color appears",
+  "enterDigits": "Enter the digits",
+  "enterDigitsReverse": "Enter digits in reverse",
+
+  "difficultyEasy": "Easy",
+  "difficultyMedium": "Medium",
+  "difficultyHard": "Hard",
+
+  "soundEnabled": "Sound On",
+  "soundDisabled": "Sound Off",
+  "hapticsEnabled": "Haptics On",
+  "hapticsDisabled": "Haptics Off",
+  "languageLabel": "Language",
+  "fontSizeLabel": "Font Size",
+  "fontSizeSmall": "Small",
+  "fontSizeMedium": "Medium",
+  "fontSizeLarge": "Large",
+  "resetData": "Reset All Data",
+  "resetDataConfirm": "Are you sure? All scores and history will be deleted.",
+  "resetDataConfirmButton": "Yes, Reset",
+  "cancel": "Cancel",
+  "aboutApp": "About",
+  "privacyNote": "All data is stored locally on your device — we collect nothing.",
+  "version": "Version",
+
+  "seconds": "s",
+  "milliseconds": "ms",
+  "digits": "digits",
+
+  "noDataYet": "No data yet — play a game first!",
+  "recentSessions": "Recent Sessions",
+  "allGames": "All Games"
+}
