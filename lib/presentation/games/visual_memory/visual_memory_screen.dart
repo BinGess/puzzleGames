@@ -8,8 +8,10 @@ import '../../../core/constants/app_typography.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/arabic_numerals.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
 enum _VisPhase { config, showing, recalling, feedback }
@@ -34,6 +36,15 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
   int _maxCorrect = 0;
 
   Timer? _showTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      GameRulesHelper.ensureShownOnce(context, GameType.visualMemory);
+    });
+  }
 
   @override
   void dispose() {
@@ -125,15 +136,13 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          isAr ? 'ذاكرة بصرية' : 'Visual Memory',
+          tr(context, 'ذاكرة بصرية', 'Visual Memory', '视觉记忆'),
           style: AppTypography.headingMedium,
         ),
         actions: [
@@ -142,44 +151,50 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Center(
                 child: Text(
-                  isAr
+                  useArabicDigits(context)
                       ? '${_numLit.toArabicDigits()} خلايا'
-                      : '$_numLit cells',
+                      : '$_numLit ${tr(context, 'خلايا', 'cells', '格')}',
                   style: AppTypography.labelLarge
                       .copyWith(color: AppColors.visualMemory),
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () =>
+                GameRulesHelper.showRulesDialog(context, GameType.visualMemory),
+          ),
         ],
       ),
       body: switch (_phase) {
-        _VisPhase.config => _buildConfig(isAr),
-        _VisPhase.showing => _buildGrid(isAr, showLit: true),
-        _VisPhase.recalling => _buildGrid(isAr, showLit: false),
-        _VisPhase.feedback => _buildGrid(isAr, showLit: true),
+        _VisPhase.config => _buildConfig(context),
+        _VisPhase.showing => _buildGrid(context, showLit: true),
+        _VisPhase.recalling => _buildGrid(context, showLit: false),
+        _VisPhase.feedback => _buildGrid(context, showLit: true),
       },
     );
   }
 
-  Widget _buildConfig(bool isAr) {
+  Widget _buildConfig(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.grid_view, color: AppColors.visualMemory, size: 64),
+            const Icon(Icons.grid_view, color: AppColors.visualMemory, size: 64),
             const SizedBox(height: 24),
             Text(
-              isAr ? 'ذاكرة بصرية' : 'Visual Memory',
+              tr(context, 'ذاكرة بصرية', 'Visual Memory', '视觉记忆'),
               style: AppTypography.headingMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              isAr
-                  ? 'تذكّر المربعات التي أضاءت وحدد مواقعها'
-                  : 'Remember which squares lit up and tap them',
+              tr(context,
+                  'تذكّر المربعات التي أضاءت وحدد مواقعها',
+                  'Remember which squares lit up and tap them',
+                  '记住亮起的方格并点击它们'),
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
@@ -189,22 +204,22 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _SizeBtn(
-                    label: isAr ? '٣×٣' : '3×3',
-                    sublabel: isAr ? 'سهل' : 'Easy',
+                    label: tr(context, '٣×٣', '3×3', '3×3'),
+                    sublabel: tr(context, 'سهل', 'Easy', '简单'),
                     selected: _gridSize == 3,
                     color: AppColors.visualMemory,
                     onTap: () => setState(() => _gridSize = 3)),
                 const SizedBox(width: 12),
                 _SizeBtn(
-                    label: isAr ? '٤×٤' : '4×4',
-                    sublabel: isAr ? 'متوسط' : 'Medium',
+                    label: tr(context, '٤×٤', '4×4', '4×4'),
+                    sublabel: tr(context, 'متوسط', 'Medium', '中等'),
                     selected: _gridSize == 4,
                     color: AppColors.visualMemory,
                     onTap: () => setState(() => _gridSize = 4)),
                 const SizedBox(width: 12),
                 _SizeBtn(
-                    label: isAr ? '٥×٥' : '5×5',
-                    sublabel: isAr ? 'صعب' : 'Hard',
+                    label: tr(context, '٥×٥', '5×5', '5×5'),
+                    sublabel: tr(context, 'صعب', 'Hard', '困难'),
                     selected: _gridSize == 5,
                     color: AppColors.visualMemory,
                     onTap: () => setState(() => _gridSize = 5)),
@@ -215,7 +230,7 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _startGame,
-                child: Text(isAr ? 'ابدأ' : 'Start'),
+                child: Text(tr(context, 'ابدأ', 'Start', '开始')),
               ),
             ),
           ],
@@ -224,7 +239,7 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
     );
   }
 
-  Widget _buildGrid(bool isAr, {required bool showLit}) {
+  Widget _buildGrid(BuildContext context, {required bool showLit}) {
     final total = _gridSize * _gridSize;
 
     return Center(
@@ -235,11 +250,19 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
           children: [
             Text(
               _phase == _VisPhase.showing
-                  ? (isAr ? 'تذكّر!' : 'Memorize!')
+                  ? tr(context, 'تذكّر!', 'Memorize!', '记住！')
                   : (_phase == _VisPhase.recalling
-                      ? (isAr ? 'اضغط المربعات' : 'Tap the squares')
-                      : (isAr ? 'صحيح!' : 'Correct!')),
-              style: AppTypography.labelMedium,
+                      ? tr(context, 'اضغط المربعات', 'Tap the squares', '点击方格')
+                      : (_tappedIndices.any((i) => !_litIndices.contains(i))
+                          ? tr(context, 'خطأ!', 'Wrong!', '错误！')
+                          : tr(context, 'صحيح!', 'Correct!', '正确！'))),
+              style: AppTypography.labelMedium.copyWith(
+                color: _phase == _VisPhase.feedback
+                    ? (_tappedIndices.any((i) => !_litIndices.contains(i))
+                        ? AppColors.error
+                        : AppColors.success)
+                    : null,
+              ),
             ),
             const SizedBox(height: 16),
             AspectRatio(

@@ -8,8 +8,10 @@ import '../../../core/constants/app_typography.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/arabic_numerals.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
 enum _MemPhase { config, memorize, input, feedback }
@@ -36,6 +38,15 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
 
   Timer? _timer;
   int _countdown = 3; // seconds remaining during memorize phase
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      GameRulesHelper.ensureShownOnce(context, GameType.numberMemory);
+    });
+  }
 
   @override
   void dispose() {
@@ -147,15 +158,13 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          isAr ? 'ذاكرة الأرقام' : 'Number Memory',
+          tr(context, 'ذاكرة الأرقام', 'Number Memory', '数字记忆'),
           style: AppTypography.headingMedium,
         ),
         actions: [
@@ -164,44 +173,50 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Center(
                 child: Text(
-                  isAr
+                  useArabicDigits(context)
                       ? '${_currentLength.toArabicDigits()} أرقام'
-                      : '$_currentLength digits',
+                      : '$_currentLength ${tr(context, 'أرقام', 'digits', '位')}',
                   style: AppTypography.labelLarge
                       .copyWith(color: AppColors.numberMemory),
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () =>
+                GameRulesHelper.showRulesDialog(context, GameType.numberMemory),
+          ),
         ],
       ),
       body: switch (_phase) {
-        _MemPhase.config => _buildConfig(isAr),
-        _MemPhase.memorize => _buildMemorize(isAr),
-        _MemPhase.input => _buildInput(isAr),
-        _MemPhase.feedback => _buildFeedback(isAr),
+        _MemPhase.config => _buildConfig(context),
+        _MemPhase.memorize => _buildMemorize(context),
+        _MemPhase.input => _buildInput(context),
+        _MemPhase.feedback => _buildFeedback(context),
       },
     );
   }
 
-  Widget _buildConfig(bool isAr) {
+  Widget _buildConfig(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.pin, color: AppColors.numberMemory, size: 64),
+            const Icon(Icons.pin, color: AppColors.numberMemory, size: 64),
             const SizedBox(height: 24),
             Text(
-              isAr ? 'ذاكرة الأرقام' : 'Number Memory',
+              tr(context, 'ذاكرة الأرقام', 'Number Memory', '数字记忆'),
               style: AppTypography.headingMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              isAr
-                  ? 'احفظ الأرقام ثم أدخلها بنفس الترتيب. يزيد الطول مع كل إجابة صحيحة.'
-                  : 'Memorize the numbers then enter them in order. Length increases with each correct answer.',
+              tr(context,
+                  'احفظ الأرقام ثم أدخلها بنفس الترتيب. يزيد الطول مع كل إجابة صحيحة.',
+                  'Memorize the numbers then enter them in order. Length increases with each correct answer.',
+                  '记住数字并按顺序输入。每答对一次长度增加。'),
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
@@ -211,7 +226,7 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _startGame,
-                child: Text(isAr ? 'ابدأ' : 'Start'),
+                child: Text(tr(context, 'ابدأ', 'Start', '开始')),
               ),
             ),
           ],
@@ -220,8 +235,8 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
     );
   }
 
-  Widget _buildMemorize(bool isAr) {
-    final displaySeq = isAr
+  Widget _buildMemorize(BuildContext context) {
+    final displaySeq = useArabicDigits(context)
         ? _currentSequence.toArabicNumerals()
         : _currentSequence;
 
@@ -236,7 +251,8 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
           ),
           const SizedBox(height: 32),
           Text(
-            isAr ? 'يختفي خلال $_countdown ث' : 'Disappears in ${_countdown}s',
+            tr(context, 'يختفي خلال $_countdown ث', 'Disappears in $_countdown''s',
+                '$_countdown秒后消失'),
             style: AppTypography.caption,
           ),
           const SizedBox(height: 24),
@@ -254,8 +270,8 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
     );
   }
 
-  Widget _buildInput(bool isAr) {
-    final displayInput = isAr
+  Widget _buildInput(BuildContext context) {
+    final displayInput = useArabicDigits(context)
         ? _inputValue.toArabicNumerals()
         : _inputValue;
 
@@ -267,23 +283,21 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isAr ? 'أدخل الأرقام' : 'Enter the digits',
+                  tr(context, 'أدخل الأرقام', 'Enter the digits', '输入数字'),
                   style: AppTypography.labelMedium,
                 ),
                 const SizedBox(height: 24),
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 32, vertical: 20),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
                           color: AppColors.numberMemory, width: 2),
                     ),
                   ),
                   child: Text(
-                    displayInput.isEmpty
-                        ? (isAr ? '___' : '___')
-                        : displayInput,
+                    displayInput.isEmpty ? '___' : displayInput,
                     style: AppTypography.digitFlash.copyWith(
                       color: displayInput.isEmpty
                           ? AppColors.textDisabled
@@ -293,6 +307,24 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
                     textDirection: TextDirection.ltr,
                   ),
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(_currentLength, (i) {
+                    final filled = i < _inputValue.length;
+                    return Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: filled
+                            ? AppColors.numberMemory
+                            : AppColors.border,
+                      ),
+                    );
+                  }),
+                ),
               ],
             ),
           ),
@@ -300,13 +332,13 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
         // Numpad
         SafeArea(
           top: false,
-          child: _buildNumpad(isAr),
+          child: _buildNumpad(context),
         ),
       ],
     );
   }
 
-  Widget _buildFeedback(bool isAr) {
+  Widget _buildFeedback(BuildContext context) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -319,9 +351,12 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
           const SizedBox(height: 16),
           Text(
             _lastCorrect
-                ? (isAr ? 'صحيح!' : 'Correct!')
-                : (isAr ? 'خطأ! الإجابة كانت: ${_currentSequence.toArabicNumerals()}'
-                         : 'Wrong! Answer was: $_currentSequence'),
+                ? tr(context, 'صحيح!', 'Correct!', '正确!')
+                : tr(context, 'خطأ! الإجابة كانت: ', 'Wrong! Answer was: ',
+                        '错误！答案是：') +
+                    (useArabicDigits(context)
+                        ? _currentSequence.toArabicNumerals()
+                        : _currentSequence),
             style: AppTypography.headingMedium.copyWith(
               color: _lastCorrect ? AppColors.success : AppColors.error,
             ),
@@ -332,7 +367,7 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
     );
   }
 
-  Widget _buildNumpad(bool isAr) {
+  Widget _buildNumpad(BuildContext context) {
     final rows = [
       ['١', '٢', '٣'],
       ['٤', '٥', '٦'],
@@ -347,7 +382,7 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
       ['', '0', '⌫'],
     ];
 
-    final displayRows = isAr ? rows : westernRows;
+    final displayRows = useArabicDigits(context) ? rows : westernRows;
     final westRows = westernRows;
 
     return Column(
@@ -404,7 +439,7 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: _inputValue.length == _currentLength ? _onSubmit : null,
-              child: Text(isAr ? 'تأكيد' : 'Submit'),
+              child: Text(tr(context, 'تأكيد', 'Submit', '确认')),
             ),
           ),
         ),

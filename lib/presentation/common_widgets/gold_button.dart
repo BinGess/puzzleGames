@@ -30,11 +30,11 @@ class GoldButton extends StatelessWidget {
             end: Alignment.bottomCenter,
           ),
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
               color: AppColors.goldGlow,
               blurRadius: 16,
-              offset: const Offset(0, 4),
+              offset: Offset(0, 4),
             ),
           ],
         ),

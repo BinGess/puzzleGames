@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/tr.dart';
 import '../../../domain/enums/game_type.dart';
 import '../../../data/models/score_record.dart';
 
@@ -10,6 +11,7 @@ class GameCardData {
   final GameType type;
   final String nameAr;
   final String nameEn;
+  final String nameZh;
   final IconData icon;
   final Color accentColor;
   final ScoreRecord? bestScore;
@@ -18,6 +20,7 @@ class GameCardData {
     required this.type,
     required this.nameAr,
     required this.nameEn,
+    required this.nameZh,
     required this.icon,
     required this.accentColor,
     this.bestScore,
@@ -32,14 +35,17 @@ class GameCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
-    return GestureDetector(
-      onTap: () {
-        Haptics.light();
-        onTap();
-      },
-      child: Container(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Haptics.light();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(16),
+        splashColor: AppColors.gold.withValues(alpha: 0.1),
+        highlightColor: AppColors.gold.withValues(alpha: 0.05),
+        child: Container(
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
@@ -47,15 +53,14 @@ class GameCard extends StatelessWidget {
             colors: [Color(0xFF1C1C28), Color(0xFF111118)],
           ),
           borderRadius: BorderRadius.circular(16),
-          border: Border(
-            // Leading edge (right in RTL) shows accent color
-            right: BorderSide(color: data.accentColor, width: 3),
+          border: BorderDirectional(
             top: const BorderSide(color: AppColors.borderGold, width: 0.5),
             bottom: const BorderSide(color: AppColors.border, width: 0.5),
-            left: const BorderSide(color: AppColors.borderGold, width: 0.5),
+            start: BorderSide(color: data.accentColor, width: 3),
+            end: const BorderSide(color: AppColors.borderGold, width: 0.5),
           ),
         ),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -73,7 +78,7 @@ class GameCard extends StatelessWidget {
                   )
                 else
                   Text(
-                    isAr ? 'جديد' : 'New',
+                    tr(context, 'جديد', 'New', '新'),
                     style: AppTypography.caption.copyWith(
                       color: data.accentColor,
                     ),
@@ -98,22 +103,23 @@ class GameCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             // Game name
             Text(
-              isAr ? data.nameAr : data.nameEn,
+              tr(context, data.nameAr, data.nameEn, data.nameZh),
               style: AppTypography.labelLarge,
               textAlign: TextAlign.end,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
             Text(
-              isAr ? data.nameEn : data.nameAr,
+              tr(context, data.nameAr, data.nameEn, data.nameZh),
               style: AppTypography.caption,
               textAlign: TextAlign.end,
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -10,10 +10,21 @@ import '../providers/app_providers.dart';
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
+  String _t(String ar, String en, String zh, String lang) {
+    switch (lang) {
+      case 'ar':
+        return ar;
+      case 'zh':
+        return zh;
+      default:
+        return en;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
-    final isAr = Directionality.of(context) == TextDirection.rtl;
+    final lang = profile.languageCode;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -21,7 +32,7 @@ class SettingsScreen extends ConsumerWidget {
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          isAr ? 'الإعدادات' : 'Settings',
+          _t('الإعدادات', 'Settings', '设置', lang),
           style: AppTypography.headingMedium,
         ),
       ),
@@ -29,15 +40,15 @@ class SettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           // ─── Sound & Haptics ──────────────────────────────────────
-          _sectionHeader(isAr ? 'الصوت والاهتزاز' : 'Sound & Haptics'),
+          _sectionHeader(_t('الصوت والاهتزاز', 'Sound & Haptics', '声音与震动', lang)),
           _toggleTile(
             icon: profile.soundEnabled
                 ? Icons.volume_up_rounded
                 : Icons.volume_off_rounded,
             iconColor: AppColors.gold,
-            title: isAr
-                ? (profile.soundEnabled ? 'الصوت مفعّل' : 'الصوت معطّل')
-                : (profile.soundEnabled ? 'Sound On' : 'Sound Off'),
+            title: profile.soundEnabled
+                ? _t('الصوت مفعّل', 'Sound On', '声音开', lang)
+                : _t('الصوت معطّل', 'Sound Off', '声音关', lang),
             value: profile.soundEnabled,
             onChanged: (v) {
               Haptics.selection();
@@ -49,9 +60,9 @@ class SettingsScreen extends ConsumerWidget {
                 ? Icons.vibration_rounded
                 : Icons.phone_android_rounded,
             iconColor: AppColors.sequenceMemory,
-            title: isAr
-                ? (profile.hapticsEnabled ? 'الاهتزاز مفعّل' : 'الاهتزاز معطّل')
-                : (profile.hapticsEnabled ? 'Haptics On' : 'Haptics Off'),
+            title: profile.hapticsEnabled
+                ? _t('الاهتزاز مفعّل', 'Haptics On', '震动开', lang)
+                : _t('الاهتزاز معطّل', 'Haptics Off', '震动关', lang),
             value: profile.hapticsEnabled,
             onChanged: (v) {
               ref.read(profileProvider.notifier).setHaptics(v);
@@ -61,57 +72,63 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(color: AppColors.border, thickness: 0.5, height: 32),
 
           // ─── Language ─────────────────────────────────────────────
-          _sectionHeader(isAr ? 'اللغة' : 'Language'),
+          _sectionHeader(_t('اللغة', 'Language', '语言', lang)),
           _choiceTile(
             icon: Icons.language_rounded,
             iconColor: AppColors.reaction,
-            title: isAr ? 'اللغة' : 'Language',
+            title: _t('اللغة', 'Language', '语言', lang),
             value: profile.languageCode == 'ar'
-                ? (isAr ? 'العربية' : 'Arabic')
-                : (isAr ? 'الإنجليزية' : 'English'),
+                ? _t('العربية', 'Arabic', '阿拉伯语', lang)
+                : profile.languageCode == 'zh'
+                    ? _t('中文', 'Chinese', '中文', lang)
+                    : _t('الإنجليزية', 'English', '英语', lang),
             onTap: () {
               Haptics.selection();
-              _showLanguagePicker(context, ref, isAr, profile.languageCode);
+              _showLanguagePicker(context, ref, lang, profile.languageCode);
             },
           ),
 
           const Divider(color: AppColors.border, thickness: 0.5, height: 32),
 
           // ─── Font Size ────────────────────────────────────────────
-          _sectionHeader(isAr ? 'حجم الخط' : 'Font Size'),
-          _fontSizeTile(context, ref, isAr, profile.fontScale),
+          _sectionHeader(_t('حجم الخط', 'Font Size', '字号', lang)),
+          _fontSizeTile(context, ref, lang, profile.fontScale),
 
           const Divider(color: AppColors.border, thickness: 0.5, height: 32),
 
           // ─── Data ─────────────────────────────────────────────────
-          _sectionHeader(isAr ? 'البيانات' : 'Data'),
+          _sectionHeader(_t('البيانات', 'Data', '数据', lang)),
           _actionTile(
             icon: Icons.delete_outline_rounded,
             iconColor: AppColors.error,
-            title: isAr ? 'إعادة تعيين البيانات' : 'Reset All Data',
-            subtitle: isAr
-                ? 'حذف جميع النتائج والسجلات'
-                : 'Delete all scores and records',
-            onTap: () => _confirmReset(context, ref, isAr),
+            title: _t('إعادة تعيين البيانات', 'Reset All Data', '重置所有数据', lang),
+            subtitle: _t(
+                'حذف جميع النتائج والسجلات',
+                'Delete all scores and records',
+                '删除所有分数和记录',
+                lang),
+            onTap: () => _confirmReset(context, ref, lang),
           ),
 
           const Divider(color: AppColors.border, thickness: 0.5, height: 32),
 
           // ─── About ────────────────────────────────────────────────
-          _sectionHeader(isAr ? 'عن التطبيق' : 'About'),
+          _sectionHeader(_t('عن التطبيق', 'About', '关于', lang)),
           _infoTile(
             icon: Icons.info_outline_rounded,
             iconColor: AppColors.textSecondary,
-            title: isAr ? 'الإصدار' : 'Version',
+            title: _t('الإصدار', 'Version', '版本', lang),
             value: '1.0.0',
           ),
           _infoTile(
             icon: Icons.lock_outline_rounded,
             iconColor: AppColors.textSecondary,
-            title: isAr ? 'الخصوصية' : 'Privacy',
-            value: isAr
-                ? 'جميع البيانات على جهازك فقط'
-                : 'All data stored locally only',
+            title: _t('الخصوصية', 'Privacy', '隐私', lang),
+            value: _t(
+                'جميع البيانات على جهازك فقط',
+                'All data stored locally only',
+                '所有数据仅保存在您的设备上',
+                lang),
           ),
 
           const SizedBox(height: 40),
@@ -205,11 +222,11 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Widget _fontSizeTile(
-      BuildContext context, WidgetRef ref, bool isAr, double currentScale) {
+      BuildContext context, WidgetRef ref, String lang, double currentScale) {
     final options = [
-      (0.85, isAr ? 'صغير' : 'Small'),
-      (1.0, isAr ? 'متوسط' : 'Medium'),
-      (1.15, isAr ? 'كبير' : 'Large'),
+      (0.85, _t('صغير', 'Small', '小', lang)),
+      (1.0, _t('متوسط', 'Medium', '中', lang)),
+      (1.15, _t('كبير', 'Large', '大', lang)),
     ];
 
     return Padding(
@@ -224,7 +241,7 @@ class SettingsScreen extends ConsumerWidget {
               children: options.map((opt) {
                 final selected = (opt.$1 - currentScale).abs() < 0.01;
                 return Padding(
-                  padding: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsetsDirectional.only(start: 8),
                   child: GestureDetector(
                     onTap: () {
                       Haptics.selection();
@@ -277,7 +294,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   void _showLanguagePicker(
-      BuildContext context, WidgetRef ref, bool isAr, String current) {
+      BuildContext context, WidgetRef ref, String lang, String current) {
     showModalBottomSheet(
       context: context,
       builder: (ctx) {
@@ -311,6 +328,19 @@ class SettingsScreen extends ConsumerWidget {
                   Navigator.pop(ctx);
                 },
               ),
+              ListTile(
+                title: Text('中文',
+                    style: AppTypography.bodyMedium
+                        .copyWith(color: current == 'zh' ? AppColors.gold : null)),
+                trailing: current == 'zh'
+                    ? const Icon(Icons.check_rounded, color: AppColors.gold)
+                    : null,
+                onTap: () {
+                  Haptics.selection();
+                  ref.read(profileProvider.notifier).setLanguage('zh');
+                  Navigator.pop(ctx);
+                },
+              ),
               const SizedBox(height: 8),
             ],
           ),
@@ -320,25 +350,28 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _confirmReset(
-      BuildContext context, WidgetRef ref, bool isAr) async {
+      BuildContext context, WidgetRef ref, String lang) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isAr ? 'إعادة تعيين' : 'Reset Data'),
+        title: Text(_t('إعادة تعيين', 'Reset Data', '重置数据', lang)),
         content: Text(
-          isAr
-              ? 'هل أنت متأكد؟ ستُحذف جميع النتائج والسجلات.'
-              : 'Are you sure? All scores and records will be deleted.',
+          _t(
+            'هل أنت متأكد؟ ستُحذف جميع النتائج والسجلات.',
+            'Are you sure? All scores and history will be deleted.',
+            '确定吗？所有分数和历史记录将被删除。',
+            lang,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(isAr ? 'إلغاء' : 'Cancel'),
+            child: Text(_t('إلغاء', 'Cancel', '取消', lang)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
-              isAr ? 'نعم، أعد التعيين' : 'Yes, Reset',
+              _t('نعم، أعد التعيين', 'Yes, Reset', '确认重置', lang),
               style: const TextStyle(color: AppColors.error),
             ),
           ),

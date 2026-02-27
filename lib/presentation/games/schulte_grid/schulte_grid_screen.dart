@@ -7,8 +7,10 @@ import '../../../core/constants/app_typography.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/arabic_numerals.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
 class SchulteGridScreen extends ConsumerStatefulWidget {
@@ -18,8 +20,7 @@ class SchulteGridScreen extends ConsumerStatefulWidget {
   ConsumerState<SchulteGridScreen> createState() => _SchulteGridScreenState();
 }
 
-class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen>
-    with SingleTickerProviderStateMixin {
+class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen> {
   // ─── Game state ───────────────────────────────────────────────────
   int _gridSize = 3; // 3, 4, or 5
   List<int> _numbers = [];
@@ -36,23 +37,19 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen>
   int? _flashIndex; // index in _numbers that just got tapped
   bool _flashCorrect = false;
 
-  // ─── Animation ───────────────────────────────────────────────────
-  late AnimationController _pulseController;
-
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      GameRulesHelper.ensureShownOnce(context, GameType.schulteGrid);
+    });
   }
 
   @override
   void dispose() {
     _uiTimer?.cancel();
     _stopwatch.stop();
-    _pulseController.dispose();
     super.dispose();
   }
 
@@ -89,7 +86,6 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen>
         _flashCorrect = true;
         _nextTarget++;
       });
-      _pulseController.forward(from: 0);
       if (_nextTarget > _gridSize * _gridSize) {
         _finishGame();
       } else {
@@ -142,15 +138,13 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          isAr ? 'شبكة شولت' : 'Schulte Grid',
+          tr(context, 'شبكة شولت', 'Schulte Grid', '舒尔特方格'),
           style: AppTypography.headingMedium,
         ),
         actions: [
@@ -167,14 +161,19 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen>
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () =>
+                GameRulesHelper.showRulesDialog(context, GameType.schulteGrid),
+          ),
         ],
       ),
-      body: _showingConfig ? _buildConfig(isAr) : _buildGrid(isAr),
+      body: _showingConfig ? _buildConfig(context) : _buildGrid(context),
     );
   }
 
   // ─── Config / difficulty selection ───────────────────────────────
-  Widget _buildConfig(bool isAr) {
+  Widget _buildConfig(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -182,7 +181,7 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              isAr ? 'اختر الحجم' : 'Choose Size',
+              tr(context, 'اختر الحجم', 'Choose Size', '选择尺寸'),
               style: AppTypography.headingMedium,
               textAlign: TextAlign.center,
             ),
@@ -191,24 +190,24 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _SizeButton(
-                  label: isAr ? '٣×٣' : '3×3',
-                  sublabel: isAr ? 'سهل' : 'Easy',
+                  label: tr(context, '٣×٣', '3×3', '3×3'),
+                  sublabel: tr(context, 'سهل', 'Easy', '简单'),
                   selected: _gridSize == 3,
                   color: AppColors.schulte,
                   onTap: () => setState(() => _gridSize = 3),
                 ),
                 const SizedBox(width: 12),
                 _SizeButton(
-                  label: isAr ? '٤×٤' : '4×4',
-                  sublabel: isAr ? 'متوسط' : 'Medium',
+                  label: tr(context, '٤×٤', '4×4', '4×4'),
+                  sublabel: tr(context, 'متوسط', 'Medium', '中等'),
                   selected: _gridSize == 4,
                   color: AppColors.schulte,
                   onTap: () => setState(() => _gridSize = 4),
                 ),
                 const SizedBox(width: 12),
                 _SizeButton(
-                  label: isAr ? '٥×٥' : '5×5',
-                  sublabel: isAr ? 'صعب' : 'Hard',
+                  label: tr(context, '٥×٥', '5×5', '5×5'),
+                  sublabel: tr(context, 'صعب', 'Hard', '困难'),
                   selected: _gridSize == 5,
                   color: AppColors.schulte,
                   onTap: () => setState(() => _gridSize = 5),
@@ -220,7 +219,7 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen>
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _startGame,
-                child: Text(isAr ? 'ابدأ' : 'Start'),
+                child: Text(tr(context, 'ابدأ', 'Start', '开始')),
               ),
             ),
           ],
@@ -230,7 +229,7 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen>
   }
 
   // ─── Active grid ─────────────────────────────────────────────────
-  Widget _buildGrid(bool isAr) {
+  Widget _buildGrid(BuildContext context) {
     const padding = 20.0;
     return Center(
       child: Padding(
@@ -240,9 +239,10 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen>
           children: [
             // Next target hint
             Text(
-              isAr
-                  ? 'اضغط: ${_nextTarget.toArabicDigits()}'
-                  : 'Tap: $_nextTarget',
+              tr(context, 'اضغط: ', 'Tap: ', '点击: ') +
+                  (useArabicDigits(context)
+                      ? _nextTarget.toArabicDigits()
+                      : '$_nextTarget'),
               style: AppTypography.labelMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -270,7 +270,7 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen>
                     flashCorrect: _flashCorrect,
                     isDone: isDone,
                     accentColor: AppColors.schulte,
-                    useArabic: isAr,
+                    useArabic: useArabicDigits(context),
                     onTap: () => _onCellTap(i),
                   );
                 },

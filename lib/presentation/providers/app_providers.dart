@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/user_profile.dart';
 import '../../data/models/ability_snapshot.dart';
 import '../../data/models/score_record.dart';
+import '../../data/datasources/hive_datasource.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../data/repositories/score_repository.dart';
 import '../../data/repositories/analytics_repository.dart';
@@ -101,13 +102,24 @@ class AbilityNotifier extends StateNotifier<AbilitySnapshot> {
 }
 
 // ─── Scores per game ─────────────────────────────────────────────────
+final scoresChangedProvider = StreamProvider<int>((ref) async* {
+  var revision = 0;
+  yield revision;
+  await for (final _ in scoresBox.watch()) {
+    revision++;
+    yield revision;
+  }
+});
+
 final gameScoresProvider =
     Provider.family<List<ScoreRecord>, String>((ref, gameId) {
+  ref.watch(scoresChangedProvider);
   return ref.read(scoreRepoProvider).getScoresForGame(gameId);
 });
 
 final bestScoreProvider =
     Provider.family<ScoreRecord?, String>((ref, gameId) {
+  ref.watch(scoresChangedProvider);
   final gameType = GameType.values.firstWhere(
     (g) => g.id == gameId,
     orElse: () => GameType.schulteGrid,

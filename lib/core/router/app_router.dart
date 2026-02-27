@@ -115,13 +115,16 @@ final GoRouter appRouter = GoRouter(
   ],
 );
 
-/// RTL-aware slide page transition (slides from left in RTL)
+/// Direction-aware slide page transition:
+/// LTR: new page slides in from right (pushes old to left)
+/// RTL: new page slides in from left (pushes old to right)
 CustomTransitionPage<void> _slidePage(Widget child) =>
     CustomTransitionPage<void>(
       child: child,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        // In RTL, "forward" navigation slides from the left side
-        const begin = Offset(-1.0, 0.0);
+        final isRtl = Directionality.of(context) == TextDirection.rtl;
+        // LTR: slide from right (1, 0); RTL: slide from left (-1, 0)
+        final begin = Offset(isRtl ? -1.0 : 1.0, 0.0);
         const end = Offset.zero;
         final tween = Tween(begin: begin, end: end).chain(
           CurveTween(curve: Curves.easeInOutCubic),

@@ -6,51 +6,16 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/utils/arabic_numerals.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
-// ─── Color data ───────────────────────────────────────────────────────────────
-class _ColorData {
-  final String wordAr;
-  final String wordEn;
-  final Color displayColor; // the actual font color (correct answer)
-  final Color wordMeaningColor; // the color the word means (distractor)
-
-  const _ColorData({
-    required this.wordAr,
-    required this.wordEn,
-    required this.displayColor,
-    required this.wordMeaningColor,
-  });
-}
-
-const _allColors = [
-  _ColorData(
-      wordAr: 'أحمر',
-      wordEn: 'Red',
-      displayColor: AppColors.colorRed,
-      wordMeaningColor: AppColors.colorRed),
-  _ColorData(
-      wordAr: 'أزرق',
-      wordEn: 'Blue',
-      displayColor: AppColors.colorBlue,
-      wordMeaningColor: AppColors.colorBlue),
-  _ColorData(
-      wordAr: 'أخضر',
-      wordEn: 'Green',
-      displayColor: AppColors.colorGreen,
-      wordMeaningColor: AppColors.colorGreen),
-  _ColorData(
-      wordAr: 'أصفر',
-      wordEn: 'Yellow',
-      displayColor: AppColors.colorYellow,
-      wordMeaningColor: AppColors.colorYellow),
-];
-
 // ─── Game phases ─────────────────────────────────────────────────────────────
-enum _Phase { config, waiting, stimulus, result }
+enum _Phase { config, waiting, ready, tooEarly, roundResult }
 
 class ReactionTimeScreen extends ConsumerStatefulWidget {
   const ReactionTimeScreen({super.key});
@@ -66,10 +31,6 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
   _Phase _phase = _Phase.config;
   final _rng = Random();
 
-  // Stimulus
-  late _ColorData _wordColor; // the word that is shown (meaning)
-  late _ColorData _fontColor; // the actual display color (correct answer)
-
   // Timing
   final Stopwatch _stopwatch = Stopwatch();
   Timer? _waitTimer;
@@ -77,6 +38,16 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
   // Scores
   final List<double> _roundMs = [];
   int _currentRound = 0;
+  double _lastMs = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      GameRulesHelper.ensureShownOnce(context, GameType.reactionTime);
+    });
+  }
 
   @override
   void dispose() {
@@ -90,57 +61,63 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
       _phase = _Phase.waiting;
       _currentRound = 0;
       _roundMs.clear();
+      _lastMs = 0;
     });
-    _scheduleStimulus();
+    _scheduleReady();
   }
 
-  void _scheduleStimulus() {
-    // Random delay 2–5 seconds
+  void _scheduleReady() {
     final delay = 2000 + _rng.nextInt(3000);
-    _waitTimer = Timer(Duration(milliseconds: delay), _showStimulus);
-  }
-
-  void _showStimulus() {
-    // Pick word and font color — ensure they are different (Stroop effect)
-    final shuffled = List.of(_allColors)..shuffle(_rng);
-    _wordColor = shuffled[0]; // the word displayed
-    // font color must differ from word meaning
-    final otherColors = shuffled.where((c) => c != _wordColor).toList();
-    _fontColor = otherColors[_rng.nextInt(otherColors.length)];
-
-    setState(() => _phase = _Phase.stimulus);
-    _stopwatch.reset();
-    _stopwatch.start();
-  }
-
-  void _onColorTap(Color tappedColor) {
-    if (_phase != _Phase.stimulus) return;
-    _stopwatch.stop();
-    final ms = _stopwatch.elapsedMilliseconds.toDouble();
-
-    if (tappedColor == _fontColor.displayColor) {
-      // Correct
-      Haptics.light();
-      _roundMs.add(ms);
-      _currentRound++;
-      if (_currentRound >= _totalRounds) {
-        _finishGame();
-      } else {
-        setState(() => _phase = _Phase.waiting);
-        _scheduleStimulus();
+    _waitTimer = Timer(Duration(milliseconds: delay), () {
+      if (mounted) {
+        setState(() => _phase = _Phase.ready);
+        _stopwatch.reset();
+        _stopwatch.start();
       }
-    } else {
-      // Wrong — end game
-      Haptics.medium();
-      setState(() => _phase = _Phase.waiting);
-      _finishGame(failed: true);
+    });
+  }
+
+  void _onTap() {
+    switch (_phase) {
+      case _Phase.waiting:
+        _waitTimer?.cancel();
+        Haptics.medium();
+        setState(() => _phase = _Phase.tooEarly);
+        break;
+
+      case _Phase.ready:
+        _stopwatch.stop();
+        final ms = _stopwatch.elapsedMilliseconds.toDouble();
+        Haptics.light();
+        _roundMs.add(ms);
+        _lastMs = ms;
+        _currentRound++;
+
+        if (_currentRound >= _totalRounds) {
+          _finishGame();
+        } else {
+          setState(() => _phase = _Phase.roundResult);
+        }
+        break;
+
+      case _Phase.tooEarly:
+        setState(() => _phase = _Phase.waiting);
+        _scheduleReady();
+        break;
+
+      case _Phase.roundResult:
+        setState(() => _phase = _Phase.waiting);
+        _scheduleReady();
+        break;
+
+      case _Phase.config:
+        break;
     }
   }
 
-  Future<void> _finishGame({bool failed = false}) async {
+  Future<void> _finishGame() async {
     _waitTimer?.cancel();
     if (_roundMs.isEmpty) {
-      // no valid rounds
       setState(() => _phase = _Phase.config);
       return;
     }
@@ -151,7 +128,11 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
       score: avgMs,
       timestamp: DateTime.now(),
       difficulty: 1,
-      metadata: {'rounds': _roundMs.length, 'failed': failed},
+      metadata: {
+        'rounds': _roundMs.length,
+        'times': _roundMs,
+        'bestMs': _roundMs.reduce(min),
+      },
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
@@ -172,15 +153,13 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          isAr ? 'وقت التفاعل' : 'Reaction Time',
+          tr(context, 'وقت التفاعل', 'Reaction Time', '反应时间'),
           style: AppTypography.headingMedium,
         ),
         actions: [
@@ -189,51 +168,60 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Center(
                 child: Text(
-                  isAr
-                      ? '${_currentRound + 1}/$_totalRounds'
-                      : '${_currentRound + 1}/$_totalRounds',
+                  '${_currentRound + (_phase == _Phase.roundResult ? 0 : 1)}/$_totalRounds',
                   style: AppTypography.labelLarge
                       .copyWith(color: AppColors.reaction),
                 ),
               ),
             ),
+          IconButton(
+            icon:
+                const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () =>
+                GameRulesHelper.showRulesDialog(context, GameType.reactionTime),
+          ),
         ],
       ),
       body: switch (_phase) {
-        _Phase.config => _buildConfig(isAr),
-        _Phase.waiting => _buildWaiting(isAr),
-        _Phase.stimulus => _buildStimulus(isAr),
-        _Phase.result => _buildWaiting(isAr), // transient
+        _Phase.config => _buildConfig(context),
+        _Phase.waiting => _buildWaiting(context),
+        _Phase.ready => _buildReady(context),
+        _Phase.tooEarly => _buildTooEarly(context),
+        _Phase.roundResult => _buildRoundResult(context),
       },
     );
   }
 
-  Widget _buildConfig(bool isAr) {
+  Widget _buildConfig(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.bolt, color: AppColors.reaction, size: 64),
+            const Icon(Icons.bolt, color: AppColors.reaction, size: 64),
             const SizedBox(height: 24),
             Text(
-              isAr ? 'اضغط حسب لون الخط' : 'Tap by font color',
+              tr(context, 'وقت التفاعل', 'Reaction Time', '反应时间'),
               style: AppTypography.headingMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              isAr
-                  ? 'ستظهر كلمة ملونة — اضغط الزر الذي يطابق لون الخط، لا معنى الكلمة'
-                  : 'A colored word appears — tap the button matching the font color, not the meaning',
-              style: AppTypography.bodyMedium.copyWith(
-                  color: AppColors.textSecondary),
+              tr(
+                context,
+                'عندما تتحول الشاشة إلى اللون الأخضر، اضغط بأسرع ما يمكن!',
+                'When the screen turns green, tap as fast as you can!',
+                '当屏幕变绿时，尽快点击！',
+              ),
+              style: AppTypography.bodyMedium
+                  .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              isAr ? '$_totalRounds جولات' : '$_totalRounds rounds',
+              tr(context, '$_totalRounds جولات', '$_totalRounds rounds',
+                  '$_totalRounds 轮'),
               style: AppTypography.caption,
               textAlign: TextAlign.center,
             ),
@@ -242,7 +230,7 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _startGame,
-                child: Text(isAr ? 'ابدأ' : 'Start'),
+                child: Text(tr(context, 'ابدأ', 'Start', '开始')),
               ),
             ),
           ],
@@ -251,101 +239,172 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
     );
   }
 
-  Widget _buildWaiting(bool isAr) {
+  Widget _buildWaiting(BuildContext context) {
     return GestureDetector(
-      onTap: () {}, // absorb taps
+      behavior: HitTestBehavior.opaque,
+      onTap: _onTap,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: AppColors.error.withValues(alpha: 0.08),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.error.withValues(alpha: 0.15),
+                  border: Border.all(color: AppColors.error, width: 2),
+                ),
+                child: const Icon(Icons.hourglass_empty_rounded,
+                    color: AppColors.error, size: 48),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                tr(context, 'انتظر اللون الأخضر...', 'Wait for green...',
+                    '等待变绿...'),
+                style: AppTypography.headingMedium
+                    .copyWith(color: AppColors.error),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                tr(context, 'لا تضغط الآن!', "Don't tap yet!", '先不要点击！'),
+                style: AppTypography.bodyMedium
+                    .copyWith(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReady(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _onTap,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: AppColors.success.withValues(alpha: 0.15),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.success.withValues(alpha: 0.25),
+                  border: Border.all(color: AppColors.success, width: 3),
+                ),
+                child: const Icon(Icons.touch_app_rounded,
+                    color: AppColors.success, size: 56),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                tr(context, 'اضغط الآن!', 'TAP NOW!', '立即点击！'),
+                style: AppTypography.displayLarge.copyWith(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTooEarly(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _onTap,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: AppColors.warning.withValues(alpha: 0.08),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.warning_amber_rounded,
+                  color: AppColors.warning, size: 72),
+              const SizedBox(height: 24),
+              Text(
+                tr(context, 'مبكر جداً!', 'Too early!', '太早了！'),
+                style: AppTypography.headingMedium
+                    .copyWith(color: AppColors.warning),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                tr(context, 'اضغط للمحاولة مرة أخرى', 'Tap to try again',
+                    '点击重试'),
+                style: AppTypography.bodyMedium
+                    .copyWith(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoundResult(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _onTap,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.border, width: 2),
-              ),
-              child: const Icon(Icons.hourglass_empty_rounded,
-                  color: AppColors.textSecondary, size: 48),
-            ),
-            const SizedBox(height: 24),
             Text(
-              isAr ? 'انتظر...' : 'Wait...',
+              useArabicDigits(context)
+                  ? _lastMs.toInt().toArabicDigits()
+                  : '${_lastMs.toInt()}',
+              style: AppTypography.displayLarge.copyWith(
+                color: AppColors.reaction,
+                fontSize: 72,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              tr(context, 'مللي ثانية', 'ms', '毫秒'),
               style: AppTypography.headingMedium.copyWith(
-                  color: AppColors.textSecondary),
+                color: AppColors.reaction,
+              ),
+            ),
+            const SizedBox(height: 32),
+            ..._roundMs.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final ms = entry.value;
+              final isLast = idx == _roundMs.length - 1;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(
+                  useArabicDigits(context)
+                      ? '${(idx + 1).toArabicDigits()}: ${ms.toInt().toArabicDigits()} مللي ثانية'
+                      : 'Round ${idx + 1}: ${ms.toInt()} ms',
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: isLast
+                        ? AppColors.textPrimary
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 32),
+            Text(
+              tr(context, 'اضغط للمتابعة', 'Tap to continue', '点击继续'),
+              style: AppTypography.caption,
             ),
           ],
         ),
       ),
     );
-  }
-
-  Widget _buildStimulus(bool isAr) {
-    return Column(
-      children: [
-        Expanded(
-          child: Center(
-            child: Text(
-              isAr ? _wordColor.wordAr : _wordColor.wordEn,
-              style: AppTypography.stroopWord.copyWith(
-                color: _fontColor.displayColor,
-              ),
-            ),
-          ),
-        ),
-        // Color buttons (RTL: Red rightmost, Yellow leftmost)
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-            child: Row(
-              children: _colorButtons(isAr),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  List<Widget> _colorButtons(bool isAr) {
-    // RTL-ordered: Red, Blue, Green, Yellow
-    final colors = [
-      (AppColors.colorRed, isAr ? 'أحمر' : 'Red'),
-      (AppColors.colorBlue, isAr ? 'أزرق' : 'Blue'),
-      (AppColors.colorGreen, isAr ? 'أخضر' : 'Green'),
-      (AppColors.colorYellow, isAr ? 'أصفر' : 'Yellow'),
-    ];
-
-    return colors
-        .expand((entry) => [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _onColorTap(entry.$1),
-                  child: Container(
-                    height: 64,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      color: entry.$1.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Center(
-                      child: Text(
-                        entry.$2,
-                        style: AppTypography.labelLarge.copyWith(
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withValues(alpha: 0.4),
-                              blurRadius: 4,
-                            )
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ])
-        .toList();
   }
 }

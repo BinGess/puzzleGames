@@ -3,12 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
+import '../../core/l10n/app_localizations.dart';
 import '../../core/router/app_router.dart';
 import '../../core/utils/haptics.dart';
 import '../../domain/enums/game_type.dart';
 import '../providers/app_providers.dart';
-import 'widgets/ability_radar_chart.dart';
-import 'widgets/lq_hero.dart';
 import 'widgets/game_card.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -16,8 +15,7 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ability = ref.watch(abilityProvider);
-    final isAr = Directionality.of(context) == TextDirection.rtl;
+    final l10n = AppL10n.of(context);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -29,7 +27,7 @@ class DashboardScreen extends ConsumerWidget {
             backgroundColor: AppColors.background,
             elevation: 0,
             title: Text(
-              isAr ? 'مختبر المنطق' : 'Logic Lab',
+              l10n.appName,
               style: AppTypography.headingMedium,
             ),
             actions: [
@@ -53,43 +51,9 @@ class DashboardScreen extends ConsumerWidget {
             ),
           ),
 
-          // ─── LQ Hero + Radar Chart ────────────────────────────────
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: Column(
-                children: [
-                  LqHero(snapshot: ability),
-                  const SizedBox(height: 16),
-                  AbilityRadarChart(snapshot: ability, size: 240),
-                  const SizedBox(height: 24),
-                  // Section divider
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Divider(color: AppColors.border, thickness: 0.5),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          isAr ? 'الألعاب' : 'Games',
-                          style: AppTypography.labelMedium,
-                        ),
-                      ),
-                      Expanded(
-                        child: Divider(color: AppColors.border, thickness: 0.5),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-          ),
-
           // ─── Game Grid ────────────────────────────────────────────
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
@@ -120,11 +84,12 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   GameCardData _buildCardData(GameType type, WidgetRef ref) {
-    final best = ref.read(bestScoreProvider(type.id));
+    final best = ref.watch(bestScoreProvider(type.id));
     return GameCardData(
       type: type,
       nameAr: _nameAr(type),
       nameEn: _nameEn(type),
+      nameZh: _nameZh(type),
       icon: _icon(type),
       accentColor: _accent(type),
       bestScore: best,
@@ -155,6 +120,19 @@ class DashboardScreen extends ConsumerWidget {
     GameType.reverseMemory => 'Reverse Memory',
     GameType.slidingPuzzle => 'Sliding Puzzle',
     GameType.towerOfHanoi => 'Tower of Hanoi',
+  };
+
+  String _nameZh(GameType type) => switch (type) {
+    GameType.schulteGrid => '舒尔特方格',
+    GameType.reactionTime => '反应时间',
+    GameType.numberMemory => '数字记忆',
+    GameType.stroopTest => '斯特鲁普测试',
+    GameType.visualMemory => '视觉记忆',
+    GameType.sequenceMemory => '序列记忆',
+    GameType.numberMatrix => '数字矩阵',
+    GameType.reverseMemory => '数字倒序',
+    GameType.slidingPuzzle => '数字华容道',
+    GameType.towerOfHanoi => '汉诺塔',
   };
 
   IconData _icon(GameType type) => switch (type) {

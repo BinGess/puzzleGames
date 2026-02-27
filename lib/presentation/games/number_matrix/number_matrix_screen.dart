@@ -7,8 +7,10 @@ import '../../../core/constants/app_typography.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/arabic_numerals.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
 class NumberMatrixScreen extends ConsumerStatefulWidget {
@@ -21,8 +23,8 @@ class NumberMatrixScreen extends ConsumerStatefulWidget {
 
 class _NumberMatrixScreenState
     extends ConsumerState<NumberMatrixScreen> {
-  static const _gridSize = 5;
-  static const _total = 25; // 5×5
+  int _gridSize = 5;
+  int get _total => _gridSize * _gridSize;
 
   List<int?> _cells = []; // null = tapped/cleared
   int _nextTarget = 1;
@@ -33,6 +35,16 @@ class _NumberMatrixScreenState
   Timer? _uiTimer;
   String _elapsedDisplay = '0.0s';
   int? _flashIndex;
+  bool _flashCorrect = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      GameRulesHelper.ensureShownOnce(context, GameType.numberMatrix);
+    });
+  }
 
   @override
   void dispose() {
@@ -43,6 +55,7 @@ class _NumberMatrixScreenState
 
   void _startGame() {
     final nums = List.generate(_total, (i) => i + 1)..shuffle();
+    _uiTimer?.cancel();
     setState(() {
       _cells = nums;
       _nextTarget = 1;
@@ -50,6 +63,7 @@ class _NumberMatrixScreenState
       _showingConfig = false;
       _elapsedDisplay = '0.0s';
       _flashIndex = null;
+      _flashCorrect = false;
     });
     _stopwatch.reset();
     _stopwatch.start();
@@ -74,6 +88,7 @@ class _NumberMatrixScreenState
         _cells[index] = null; // clear
         _nextTarget++;
         _flashIndex = index;
+        _flashCorrect = true;
       });
       Future.delayed(const Duration(milliseconds: 200), () {
         if (mounted) setState(() => _flashIndex = null);
@@ -84,8 +99,29 @@ class _NumberMatrixScreenState
       }
     } else {
       Haptics.medium();
-      // Wrong tap — no penalty, just visual feedback
-      setState(() => _flashIndex = index);
+      // Wrong tap — no penalty, but show clear feedback + next target hint
+      setState(() {
+        _flashIndex = index;
+        _flashCorrect = false;
+      });
+      final expected = useArabicDigits(context)
+          ? _nextTarget.toArabicDigits()
+          : '$_nextTarget';
+      final hint = tr(
+        context,
+        'الرقم المطلوب الآن: $expected',
+        'Current target: $expected',
+        '当前目标：$expected',
+      );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(hint),
+            duration: const Duration(milliseconds: 700),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       Future.delayed(const Duration(milliseconds: 200), () {
         if (mounted) setState(() => _flashIndex = null);
       });
@@ -102,8 +138,8 @@ class _NumberMatrixScreenState
       gameId: GameType.numberMatrix.id,
       score: elapsedMs,
       timestamp: DateTime.now(),
-      difficulty: 1,
-      metadata: {},
+      difficulty: _gridSize - 2,
+      metadata: {'gridSize': _gridSize},
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
@@ -124,15 +160,13 @@ class _NumberMatrixScreenState
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          isAr ? 'مصفوفة الأرقام' : 'Number Matrix',
+          tr(context, 'مصفوفة الأرقام', 'Number Matrix', '数字矩阵'),
           style: AppTypography.headingMedium,
         ),
         actions: [
@@ -149,41 +183,83 @@ class _NumberMatrixScreenState
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () =>
+                GameRulesHelper.showRulesDialog(context, GameType.numberMatrix),
+          ),
         ],
       ),
-      body: _showingConfig ? _buildConfig(isAr) : _buildGrid(isAr),
+      body: _showingConfig ? _buildConfig(context) : _buildGrid(context),
     );
   }
 
-  Widget _buildConfig(bool isAr) {
+  Widget _buildConfig(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.touch_app, color: AppColors.numberMatrix, size: 64),
+            const Icon(Icons.touch_app, color: AppColors.numberMatrix, size: 64),
             const SizedBox(height: 24),
             Text(
-              isAr ? 'مصفوفة الأرقام' : 'Number Matrix',
+              tr(context, 'مصفوفة الأرقام', 'Number Matrix', '数字矩阵'),
               style: AppTypography.headingMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              isAr
-                  ? 'اضغط الأرقام بالترتيب من ١ إلى ٢٥ بأسرع وقت'
-                  : 'Tap numbers in order from 1 to 25 as fast as possible',
+              tr(context,
+                  'اضغط الأرقام بالترتيب. فقط الرقم المطلوب يختفي',
+                  'Tap numbers in order. Only the current target will clear',
+                  '按顺序点击数字，只有当前目标会消失'),
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 48),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _MatrixSizeBtn(
+                  label: tr(context, '٣×٣', '3×3', '3×3'),
+                  sublabel: tr(context, 'سهل', 'Easy', '简单'),
+                  selected: _gridSize == 3,
+                  color: AppColors.numberMatrix,
+                  onTap: () => setState(() => _gridSize = 3),
+                ),
+                const SizedBox(width: 12),
+                _MatrixSizeBtn(
+                  label: tr(context, '٤×٤', '4×4', '4×4'),
+                  sublabel: tr(context, 'متوسط', 'Medium', '中等'),
+                  selected: _gridSize == 4,
+                  color: AppColors.numberMatrix,
+                  onTap: () => setState(() => _gridSize = 4),
+                ),
+                const SizedBox(width: 12),
+                _MatrixSizeBtn(
+                  label: tr(context, '٥×٥', '5×5', '5×5'),
+                  sublabel: tr(context, 'صعب', 'Hard', '困难'),
+                  selected: _gridSize == 5,
+                  color: AppColors.numberMatrix,
+                  onTap: () => setState(() => _gridSize = 5),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              useArabicDigits(context)
+                  ? '${_total.toArabicDigits()} رقم'
+                  : '$_total ${tr(context, 'رقم', 'numbers', '个数字')}',
+              style: AppTypography.caption,
+            ),
+            const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _startGame,
-                child: Text(isAr ? 'ابدأ' : 'Start'),
+                child: Text(tr(context, 'ابدأ', 'Start', '开始')),
               ),
             ),
           ],
@@ -192,7 +268,7 @@ class _NumberMatrixScreenState
     );
   }
 
-  Widget _buildGrid(bool isAr) {
+  Widget _buildGrid(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -200,9 +276,10 @@ class _NumberMatrixScreenState
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              isAr
-                  ? 'اضغط: ${_nextTarget.toArabicDigits()}'
-                  : 'Tap: $_nextTarget',
+              tr(context, 'اضغط: ', 'Tap: ', '点击: ') +
+                  (useArabicDigits(context)
+                      ? _nextTarget.toArabicDigits()
+                      : '$_nextTarget'),
               style: AppTypography.labelMedium
                   .copyWith(color: AppColors.textSecondary),
             ),
@@ -211,7 +288,7 @@ class _NumberMatrixScreenState
               aspectRatio: 1,
               child: GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: _gridSize,
                   crossAxisSpacing: 6,
                   mainAxisSpacing: 6,
@@ -230,23 +307,29 @@ class _NumberMatrixScreenState
                         color: isEmpty
                             ? AppColors.surface
                             : isFlash
-                                ? AppColors.numberMatrix.withValues(alpha: 0.3)
+                                ? (_flashCorrect
+                                    ? AppColors.numberMatrix.withValues(alpha: 0.3)
+                                    : AppColors.error.withValues(alpha: 0.25))
                                 : const Color(0xFF1A1A26),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: isEmpty
                               ? AppColors.border.withValues(alpha: 0.3)
                               : isFlash
-                                  ? AppColors.numberMatrix
+                                  ? (_flashCorrect
+                                      ? AppColors.numberMatrix
+                                      : AppColors.error)
                                   : AppColors.border,
-                          width: 0.5,
+                          width: isFlash ? 1.4 : 0.5,
                         ),
                       ),
                       child: isEmpty
                           ? null
                           : Center(
                               child: Text(
-                                isAr ? num.toArabicDigits() : '$num',
+                                useArabicDigits(context)
+                                    ? num.toArabicDigits()
+                                    : '$num',
                                 style: AppTypography.bodyMedium.copyWith(
                                   color: isFlash
                                       ? AppColors.numberMatrix
@@ -259,6 +342,64 @@ class _NumberMatrixScreenState
                   );
                 },
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MatrixSizeBtn extends StatelessWidget {
+  final String label;
+  final String sublabel;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _MatrixSizeBtn({
+    required this.label,
+    required this.sublabel,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Haptics.selection();
+        onTap();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: selected
+                ? [color.withValues(alpha: 0.25), color.withValues(alpha: 0.1)]
+                : [const Color(0xFF1C1C28), const Color(0xFF111118)],
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? color : AppColors.border,
+            width: selected ? 1.5 : 0.5,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: AppTypography.headingSmall
+                  .copyWith(color: selected ? color : AppColors.textPrimary),
+            ),
+            Text(
+              sublabel,
+              style: AppTypography.caption
+                  .copyWith(color: selected ? color : AppColors.textSecondary),
             ),
           ],
         ),

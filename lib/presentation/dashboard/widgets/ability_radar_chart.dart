@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
+import '../../../core/l10n/app_localizations.dart';
 import '../../../data/models/ability_snapshot.dart';
 
 /// Cognitive ability radar chart — 5 dimensions
@@ -76,10 +77,13 @@ class AbilityRadarChart extends StatelessWidget {
   }
 
   List<String> _getLabels(BuildContext context) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-    if (isAr) {
-      return ['السرعة', 'الذاكرة', 'المنطق', 'التركيز', 'الإدراك'];
-    }
-    return ['Speed', 'Memory', 'Logic', 'Focus', 'Sense'];
+    final l10n = AppL10n.of(context);
+    return [
+      l10n.dimensionSpeed,
+      l10n.dimensionMemory,
+      l10n.dimensionSpaceLogic,
+      l10n.dimensionFocus,
+      l10n.dimensionPerception,
+    ];
   }
 }

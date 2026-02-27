@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,8 +8,10 @@ import '../../../core/constants/app_typography.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/arabic_numerals.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
 class SlidingPuzzleScreen extends ConsumerStatefulWidget {
@@ -27,6 +30,25 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
   bool _showingConfig = true;
 
   final _rng = Random();
+  final Stopwatch _stopwatch = Stopwatch();
+  Timer? _uiTimer;
+  String _elapsedDisplay = '0.0s';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      GameRulesHelper.ensureShownOnce(context, GameType.slidingPuzzle);
+    });
+  }
+
+  @override
+  void dispose() {
+    _uiTimer?.cancel();
+    _stopwatch.stop();
+    super.dispose();
+  }
 
   void _startGame() {
     final tiles = _generateSolvable(_gridSize);
@@ -35,6 +57,18 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
       _moves = 0;
       _gameActive = true;
       _showingConfig = false;
+      _elapsedDisplay = '0.0s';
+    });
+    _stopwatch.reset();
+    _stopwatch.start();
+    _uiTimer?.cancel();
+    _uiTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (mounted && _gameActive) {
+        setState(() {
+          _elapsedDisplay =
+              '${(_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1)}s';
+        });
+      }
     });
   }
 
@@ -93,6 +127,8 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
   }
 
   Future<void> _finishGame() async {
+    _stopwatch.stop();
+    _uiTimer?.cancel();
     final record = ScoreRecord(
       gameId: GameType.slidingPuzzle.id,
       score: _moves.toDouble(),
@@ -124,56 +160,73 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          isAr ? 'لغز الأرقام' : 'Sliding Puzzle',
+          tr(context, 'لغز الأرقام', 'Sliding Puzzle', '数字华容道'),
           style: AppTypography.headingMedium,
         ),
         actions: [
           if (_gameActive)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Center(
                 child: Text(
-                  isAr
+                  _elapsedDisplay,
+                  style: AppTypography.labelLarge.copyWith(
+                    color: AppColors.slidingPuzzle,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ),
+          if (_gameActive)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Center(
+                child: Text(
+                  useArabicDigits(context)
                       ? '${_moves.toArabicDigits()} حركة'
-                      : '$_moves moves',
+                      : '$_moves ${tr(context, 'حركة', 'moves', '步')}',
                   style: AppTypography.labelLarge
                       .copyWith(color: AppColors.slidingPuzzle),
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () =>
+                GameRulesHelper.showRulesDialog(context, GameType.slidingPuzzle),
+          ),
         ],
       ),
-      body: _showingConfig ? _buildConfig(isAr) : _buildPuzzle(isAr),
+      body: _showingConfig ? _buildConfig(context) : _buildPuzzle(context),
     );
   }
 
-  Widget _buildConfig(bool isAr) {
+  Widget _buildConfig(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.extension, color: AppColors.slidingPuzzle, size: 64),
+            const Icon(Icons.extension, color: AppColors.slidingPuzzle, size: 64),
             const SizedBox(height: 24),
             Text(
-              isAr ? 'لغز الأرقام' : 'Sliding Puzzle',
+              tr(context, 'لغز الأرقام', 'Sliding Puzzle', '数字华容道'),
               style: AppTypography.headingMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              isAr
-                  ? 'رتّب الأرقام بالترتيب الصحيح بأقل عدد من الحركات'
-                  : 'Arrange the numbers in order with the fewest moves',
+              tr(context,
+                  'رتّب الأرقام بالترتيب الصحيح بأقل عدد من الحركات',
+                  'Arrange the numbers in order with the fewest moves',
+                  '用最少步数将数字按顺序排列'),
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
@@ -183,16 +236,16 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _SizePill(
-                  label: isAr ? '٣×٣' : '3×3',
-                  sublabel: isAr ? 'سهل' : 'Easy',
+                  label: tr(context, '٣×٣', '3×3', '3×3'),
+                  sublabel: tr(context, 'سهل', 'Easy', '简单'),
                   selected: _gridSize == 3,
                   color: AppColors.slidingPuzzle,
                   onTap: () => setState(() => _gridSize = 3),
                 ),
                 const SizedBox(width: 12),
                 _SizePill(
-                  label: isAr ? '٤×٤' : '4×4',
-                  sublabel: isAr ? 'صعب' : 'Hard',
+                  label: tr(context, '٤×٤', '4×4', '4×4'),
+                  sublabel: tr(context, 'صعب', 'Hard', '困难'),
                   selected: _gridSize == 4,
                   color: AppColors.slidingPuzzle,
                   onTap: () => setState(() => _gridSize = 4),
@@ -204,7 +257,7 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _startGame,
-                child: Text(isAr ? 'ابدأ' : 'Start'),
+                child: Text(tr(context, 'ابدأ', 'Start', '开始')),
               ),
             ),
           ],
@@ -213,7 +266,7 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
     );
   }
 
-  Widget _buildPuzzle(bool isAr) {
+  Widget _buildPuzzle(BuildContext context) {
     final total = _gridSize * _gridSize;
     return Center(
       child: Padding(
@@ -239,7 +292,7 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
                   decoration: BoxDecoration(
                     gradient: isEmpty
                         ? null
-                        : LinearGradient(
+                        : const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
@@ -260,7 +313,9 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
                       ? null
                       : Center(
                           child: Text(
-                            isAr ? num.toArabicDigits() : '$num',
+                            useArabicDigits(context)
+                                ? num.toArabicDigits()
+                                : '$num',
                             style: AppTypography.headingSmall.copyWith(
                               fontWeight: FontWeight.w700,
                               color: AppColors.textPrimary,

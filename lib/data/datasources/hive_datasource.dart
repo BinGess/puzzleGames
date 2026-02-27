@@ -29,9 +29,56 @@ Future<void> initHive() async {
   await Hive.openBox<UserProfile>(HiveBoxes.profile);
   await Hive.openBox<ScoreRecord>(HiveBoxes.scores);
   await Hive.openBox<AbilitySnapshot>(HiveBoxes.ability);
+
+  // One-time data migration: normalize historical game IDs.
+  await _migrateLegacyScoreGameIds();
 }
 
 /// Typed box accessors
 Box<UserProfile> get profileBox => Hive.box<UserProfile>(HiveBoxes.profile);
 Box<ScoreRecord> get scoresBox => Hive.box<ScoreRecord>(HiveBoxes.scores);
 Box<AbilitySnapshot> get abilityBox => Hive.box<AbilitySnapshot>(HiveBoxes.ability);
+
+Future<void> _migrateLegacyScoreGameIds() async {
+  const canonicalByNormalized = <String, String>{
+    'schultegrid': 'schulte_grid',
+    'reactiontime': 'reaction_time',
+    'numbermemory': 'number_memory',
+    'strooptest': 'stroop_test',
+    'visualmemory': 'visual_memory',
+    'sequencememory': 'sequence_memory',
+    'numbermatrix': 'number_matrix',
+    'reversememory': 'reverse_memory',
+    'slidingpuzzle': 'sliding_puzzle',
+    'towerofhanoi': 'tower_of_hanoi',
+    'schulte': 'schulte_grid',
+    'reaction': 'reaction_time',
+    'stroop': 'stroop_test',
+    'hanoi': 'tower_of_hanoi',
+  };
+
+  final box = scoresBox;
+  final keys = box.keys.toList(growable: false);
+
+  for (final key in keys) {
+    final record = box.get(key);
+    if (record == null) continue;
+
+    final normalized = record.gameId
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final canonical = canonicalByNormalized[normalized];
+    if (canonical == null || canonical == record.gameId) continue;
+
+    final migrated = ScoreRecord(
+      gameId: canonical,
+      score: record.score,
+      accuracy: record.accuracy,
+      timestamp: record.timestamp,
+      difficulty: record.difficulty,
+      metadata: Map<String, dynamic>.from(record.metadata),
+    );
+
+    await box.put(key, migrated);
+  }
+}

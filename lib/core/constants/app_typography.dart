@@ -82,11 +82,12 @@ abstract final class AppTypography {
         height: 1.2,
       );
 
+  /// Caption — minimum 12px for accessibility (WCAG)
   static TextStyle get caption => GoogleFonts.cairo(
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: FontWeight.w400,
         color: AppColors.textDisabled,
-        height: 1.2,
+        height: 1.25,
       );
 
   // ─── Game-specific ───────────────────────────────────────────────

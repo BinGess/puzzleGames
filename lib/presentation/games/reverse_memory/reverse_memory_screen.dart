@@ -8,8 +8,10 @@ import '../../../core/constants/app_typography.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/arabic_numerals.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
 enum _RevPhase { config, memorize, input, feedback }
@@ -35,6 +37,15 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
 
   Timer? _timer;
   int _countdown = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      GameRulesHelper.ensureShownOnce(context, GameType.reverseMemory);
+    });
+  }
 
   @override
   void dispose() {
@@ -142,15 +153,13 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          isAr ? 'ذاكرة العكس' : 'Reverse Memory',
+          tr(context, 'ذاكرة العكس', 'Reverse Memory', '数字倒序'),
           style: AppTypography.headingMedium,
         ),
         actions: [
@@ -159,44 +168,50 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Center(
                 child: Text(
-                  isAr
+                  useArabicDigits(context)
                       ? '${_currentLength.toArabicDigits()} أرقام'
-                      : '$_currentLength digits',
+                      : '$_currentLength ${tr(context, 'أرقام', 'digits', '位')}',
                   style: AppTypography.labelLarge
                       .copyWith(color: AppColors.reverseMemory),
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () =>
+                GameRulesHelper.showRulesDialog(context, GameType.reverseMemory),
+          ),
         ],
       ),
       body: switch (_phase) {
-        _RevPhase.config => _buildConfig(isAr),
-        _RevPhase.memorize => _buildMemorize(isAr),
-        _RevPhase.input => _buildInput(isAr),
-        _RevPhase.feedback => _buildFeedback(isAr),
+        _RevPhase.config => _buildConfig(context),
+        _RevPhase.memorize => _buildMemorize(context),
+        _RevPhase.input => _buildInput(context),
+        _RevPhase.feedback => _buildFeedback(context),
       },
     );
   }
 
-  Widget _buildConfig(bool isAr) {
+  Widget _buildConfig(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.swap_horiz, color: AppColors.reverseMemory, size: 64),
+            const Icon(Icons.swap_horiz, color: AppColors.reverseMemory, size: 64),
             const SizedBox(height: 24),
             Text(
-              isAr ? 'ذاكرة العكس' : 'Reverse Memory',
+              tr(context, 'ذاكرة العكس', 'Reverse Memory', '数字倒序'),
               style: AppTypography.headingMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              isAr
-                  ? 'احفظ الأرقام ثم أدخلها بالترتيب المعكوس'
-                  : 'Memorize the digits, then enter them in reverse order',
+              tr(context,
+                  'احفظ الأرقام ثم أدخلها بالترتيب المعكوس',
+                  'Memorize the digits, then enter them in reverse order',
+                  '记住数字并按倒序输入'),
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
@@ -206,7 +221,7 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _startGame,
-                child: Text(isAr ? 'ابدأ' : 'Start'),
+                child: Text(tr(context, 'ابدأ', 'Start', '开始')),
               ),
             ),
           ],
@@ -215,9 +230,10 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
     );
   }
 
-  Widget _buildMemorize(bool isAr) {
-    final displaySeq =
-        isAr ? _currentSequence.toArabicNumerals() : _currentSequence;
+  Widget _buildMemorize(BuildContext context) {
+    final displaySeq = useArabicDigits(context)
+        ? _currentSequence.toArabicNumerals()
+        : _currentSequence;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -230,17 +246,29 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
           ),
           const SizedBox(height: 32),
           Text(
-            isAr ? 'يختفي خلال $_countdown ث' : 'Disappears in ${_countdown}s',
+            tr(context, 'يختفي خلال $_countdown ث', 'Disappears in $_countdown''s',
+                '$_countdown秒后消失'),
             style: AppTypography.caption,
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: 200,
+            child: LinearProgressIndicator(
+              value: _countdown / (3 + max(0, (_currentLength - 3) * 0.5)).ceil(),
+              backgroundColor: AppColors.border,
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                  AppColors.reverseMemory),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInput(bool isAr) {
-    final displayInput =
-        isAr ? _inputValue.toArabicNumerals() : _inputValue;
+  Widget _buildInput(BuildContext context) {
+    final displayInput = useArabicDigits(context)
+        ? _inputValue.toArabicNumerals()
+        : _inputValue;
     return Column(
       children: [
         Expanded(
@@ -249,21 +277,21 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  isAr ? 'أدخل الأرقام معكوسة' : 'Enter digits in reverse',
+                  tr(context, 'أدخل الأرقام معكوسة', 'Enter digits in reverse',
+                      '倒序输入数字'),
                   style: AppTypography.labelMedium,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  isAr
-                      ? '(إذا رأيت ١٢٣ أدخل ٣٢١)'
-                      : '(If you saw 123, enter 321)',
+                  tr(context, '(إذا رأيت ١٢٣ أدخل ٣٢١)', '(If you saw 123, enter 321)',
+                      '(如看到 123，输入 321)'),
                   style: AppTypography.caption,
                 ),
                 const SizedBox(height: 24),
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 32, vertical: 20),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
                           color: AppColors.reverseMemory, width: 2),
@@ -284,12 +312,12 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
             ),
           ),
         ),
-        SafeArea(top: false, child: _buildNumpad(isAr)),
+        SafeArea(top: false, child: _buildNumpad(context)),
       ],
     );
   }
 
-  Widget _buildFeedback(bool isAr) {
+  Widget _buildFeedback(BuildContext context) {
     final reversed = _currentSequence.split('').reversed.join();
     final correct = _inputValue == reversed;
     return Center(
@@ -304,10 +332,12 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
           const SizedBox(height: 16),
           Text(
             correct
-                ? (isAr ? 'صحيح!' : 'Correct!')
-                : (isAr
-                    ? 'خطأ! الإجابة كانت: ${reversed.toArabicNumerals()}'
-                    : 'Wrong! Answer was: $reversed'),
+                ? tr(context, 'صحيح!', 'Correct!', '正确!')
+                : tr(context, 'خطأ! الإجابة كانت: ', 'Wrong! Answer was: ',
+                        '错误！答案是：') +
+                    (useArabicDigits(context)
+                        ? reversed.toArabicNumerals()
+                        : reversed),
             style: AppTypography.headingMedium.copyWith(
               color: correct ? AppColors.success : AppColors.error,
             ),
@@ -318,8 +348,8 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
     );
   }
 
-  Widget _buildNumpad(bool isAr) {
-    final rows = isAr
+  Widget _buildNumpad(BuildContext context) {
+    final rows = useArabicDigits(context)
         ? [
             ['١', '٢', '٣'],
             ['٤', '٥', '٦'],
@@ -394,7 +424,7 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
               onPressed: _inputValue.length == _currentLength
                   ? _onSubmit
                   : null,
-              child: Text(isAr ? 'تأكيد' : 'Submit'),
+              child: Text(tr(context, 'تأكيد', 'Submit', '确认')),
             ),
           ),
         ),

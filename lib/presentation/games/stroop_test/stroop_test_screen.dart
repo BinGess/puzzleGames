@@ -8,24 +8,27 @@ import '../../../core/constants/app_typography.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/arabic_numerals.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
 // ─── Color entries for Stroop ─────────────────────────────────────────────────
 class _StroopColor {
   final String nameAr;
   final String nameEn;
+  final String nameZh;
   final Color value;
 
-  const _StroopColor(this.nameAr, this.nameEn, this.value);
+  const _StroopColor(this.nameAr, this.nameEn, this.nameZh, this.value);
 }
 
 const _stroopColors = [
-  _StroopColor('أحمر', 'Red', AppColors.colorRed),
-  _StroopColor('أزرق', 'Blue', AppColors.colorBlue),
-  _StroopColor('أخضر', 'Green', AppColors.colorGreen),
-  _StroopColor('أصفر', 'Yellow', AppColors.colorYellow),
+  _StroopColor('أحمر', 'Red', '红', AppColors.colorRed),
+  _StroopColor('أزرق', 'Blue', '蓝', AppColors.colorBlue),
+  _StroopColor('أخضر', 'Green', '绿', AppColors.colorGreen),
+  _StroopColor('أصفر', 'Yellow', '黄', AppColors.colorYellow),
 ];
 
 enum _StroopPhase { config, playing, done }
@@ -53,15 +56,22 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
   final List<double> _reactionTimes = [];
 
   // Timer
-  Timer? _stimulusTimer;
   final Stopwatch _stopwatch = Stopwatch();
 
   // Flash feedback
   Color? _flashColor;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      GameRulesHelper.ensureShownOnce(context, GameType.stroopTest);
+    });
+  }
+
+  @override
   void dispose() {
-    _stimulusTimer?.cancel();
     _stopwatch.stop();
     super.dispose();
   }
@@ -117,7 +127,6 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
   }
 
   Future<void> _finishGame() async {
-    _stimulusTimer?.cancel();
     final record = ScoreRecord(
       gameId: GameType.stroopTest.id,
       score: _correct.toDouble(),
@@ -151,15 +160,13 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          isAr ? 'اختبار ستروب' : 'Stroop Test',
+          tr(context, 'اختبار ستروب', 'Stroop Test', '斯特鲁普测试'),
           style: AppTypography.headingMedium,
         ),
         actions: [
@@ -168,7 +175,7 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Center(
                 child: Text(
-                  isAr
+                  useArabicDigits(context)
                       ? '${_correct.toArabicDigits()}/${_current.toArabicDigits()}'
                       : '$_correct/$_current',
                   style: AppTypography.labelLarge
@@ -176,43 +183,50 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () =>
+                GameRulesHelper.showRulesDialog(context, GameType.stroopTest),
+          ),
         ],
       ),
       body: switch (_phase) {
-        _StroopPhase.config => _buildConfig(isAr),
-        _StroopPhase.playing => _buildPlaying(isAr),
-        _StroopPhase.done => _buildConfig(isAr),
+        _StroopPhase.config => _buildConfig(context),
+        _StroopPhase.playing => _buildPlaying(context),
+        _StroopPhase.done => _buildConfig(context),
       },
     );
   }
 
-  Widget _buildConfig(bool isAr) {
+  Widget _buildConfig(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.format_color_text,
+            const Icon(Icons.format_color_text,
                 color: AppColors.stroop, size: 64),
             const SizedBox(height: 24),
             Text(
-              isAr ? 'اختبار ستروب' : 'Stroop Test',
+              tr(context, 'اختبار ستروب', 'Stroop Test', '斯特鲁普测试'),
               style: AppTypography.headingMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              isAr
-                  ? 'اضغط الزر الذي يطابق لون الخط — لا معنى الكلمة!'
-                  : 'Tap the button matching the font color — not the word meaning!',
+              tr(context,
+                  'اضغط الزر الذي يطابق لون الخط — لا معنى الكلمة!',
+                  'Tap the button matching the font color — not the word meaning!',
+                  '点击与字体颜色匹配的按钮，而非文字含义'),
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              isAr ? '$_totalStimuli سؤال' : '$_totalStimuli questions',
+              tr(context, '$_totalStimuli سؤال', '$_totalStimuli questions',
+                  '$_totalStimuli 题'),
               style: AppTypography.caption,
               textAlign: TextAlign.center,
             ),
@@ -221,7 +235,7 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _startGame,
-                child: Text(isAr ? 'ابدأ' : 'Start'),
+                child: Text(tr(context, 'ابدأ', 'Start', '开始')),
               ),
             ),
           ],
@@ -230,7 +244,7 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
     );
   }
 
-  Widget _buildPlaying(bool isAr) {
+  Widget _buildPlaying(BuildContext context) {
     return Column(
       children: [
         // Progress bar
@@ -253,7 +267,7 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
                     )
                   : null,
               child: Text(
-                isAr ? _word.nameAr : _word.nameEn,
+                tr(context, _word.nameAr, _word.nameEn, _word.nameZh),
                 style: AppTypography.stroopWord.copyWith(color: _ink.value),
               ),
             ),
@@ -264,36 +278,38 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
           top: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-            child: _buildColorButtons(isAr),
+            child: _buildColorButtons(context),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildColorButtons(bool isAr) {
+  Widget _buildColorButtons(BuildContext context) {
     return Column(
       children: [
         Row(
           children: [
-            _colorBtn(AppColors.colorRed, isAr ? 'أحمر' : 'Red'),
+            _colorBtn(context, AppColors.colorRed, 'أحمر', 'Red', '红'),
             const SizedBox(width: 8),
-            _colorBtn(AppColors.colorBlue, isAr ? 'أزرق' : 'Blue'),
+            _colorBtn(context, AppColors.colorBlue, 'أزرق', 'Blue', '蓝'),
           ],
         ),
         const SizedBox(height: 8),
         Row(
           children: [
-            _colorBtn(AppColors.colorGreen, isAr ? 'أخضر' : 'Green'),
+            _colorBtn(context, AppColors.colorGreen, 'أخضر', 'Green', '绿'),
             const SizedBox(width: 8),
-            _colorBtn(AppColors.colorYellow, isAr ? 'أصفر' : 'Yellow'),
+            _colorBtn(context, AppColors.colorYellow, 'أصفر', 'Yellow', '黄'),
           ],
         ),
       ],
     );
   }
 
-  Widget _colorBtn(Color color, String label) {
+  Widget _colorBtn(
+      BuildContext context, Color color, String ar, String en, String zh) {
+    final label = tr(context, ar, en, zh);
     return Expanded(
       child: GestureDetector(
         onTap: () => _onColorTap(color),

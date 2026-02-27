@@ -30,16 +30,14 @@ class MetalCard extends StatelessWidget {
             colors: [Color(0xFF1E2030), Color(0xFF12121C)],
           ),
           borderRadius: BorderRadius.circular(borderRadius),
-          border: Border(
-            // In RTL, leading edge is right — but Flutter Border.left/right is physical
-            // We use logical (start/end) for RTL: use `BorderDirectional`
+          border: BorderDirectional(
             top: const BorderSide(color: AppColors.borderGold, width: 0.5),
             bottom: const BorderSide(color: AppColors.border, width: 0.5),
-            left: const BorderSide(color: AppColors.borderGold, width: 0.5),
-            right: BorderSide(
+            start: BorderSide(
               color: accentColor ?? AppColors.borderGold,
               width: accentColor != null ? 3 : 0.5,
             ),
+            end: const BorderSide(color: AppColors.borderGold, width: 0.5),
           ),
         ),
         child: ClipRRect(

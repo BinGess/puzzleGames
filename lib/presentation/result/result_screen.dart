@@ -6,6 +6,7 @@ import '../../core/constants/app_typography.dart';
 import '../../core/router/app_router.dart';
 import '../../core/utils/arabic_numerals.dart';
 import '../../core/utils/haptics.dart';
+import '../../core/utils/tr.dart';
 import '../../domain/enums/game_type.dart';
 import '../providers/app_providers.dart';
 
@@ -49,25 +50,30 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
     super.dispose();
   }
 
-  String _formatScore(double score, String metric, bool isAr) {
+  String _formatScore(
+      double score, String metric, BuildContext context) {
     switch (metric) {
       case 'time':
         final s = (score / 1000).toStringAsFixed(1);
-        return isAr ? '$s ث' : '${s}s';
+        return tr(context, '$s ث', '${s}s', '$s秒');
       case 'ms':
         final ms = score.round();
-        return isAr ? '$ms مللي' : '${ms}ms';
+        return tr(context, '$ms مللي', '${ms}ms', '$ms毫秒');
       case 'length':
         final n = score.toInt();
-        return isAr
+        return useArabicDigits(context)
             ? '${n.toArabicDigits()} ${n == 1 ? 'رقم' : 'أرقام'}'
-            : '$n digit${n == 1 ? '' : 's'}';
+            : '$n ${tr(context, n == 1 ? 'رقم' : 'أرقام', n == 1 ? 'digit' : 'digits', '位')}';
       case 'correct':
         final n = score.toInt();
-        return isAr ? '${n.toArabicDigits()} صحيح' : '$n correct';
+        return useArabicDigits(context)
+            ? '${n.toArabicDigits()} صحيح'
+            : '$n ${tr(context, 'صحيح', 'correct', '正确')}';
       case 'moves':
         final n = score.toInt();
-        return isAr ? '${n.toArabicDigits()} حركة' : '$n moves';
+        return useArabicDigits(context)
+            ? '${n.toArabicDigits()} حركة'
+            : '$n ${tr(context, 'حركة', 'moves', '步')}';
       default:
         return score.toStringAsFixed(0);
     }
@@ -75,8 +81,6 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
     final gameType = widget.data['gameType'] as GameType? ?? GameType.schulteGrid;
     final score = (widget.data['score'] as num?)?.toDouble() ?? 0;
     final metric = widget.data['metric'] as String? ?? 'time';
@@ -85,13 +89,13 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
     final ability = ref.watch(abilityProvider);
     final accentColor = _accentForType(gameType);
 
-    final gameName = isAr ? _nameAr(gameType) : _nameEn(gameType);
-    final scoreLabel = _formatScore(score, metric, isAr);
+    final gameName = _nameTr(context, gameType);
+    final scoreLabel = _formatScore(score, metric, context);
 
     final best = ref.read(bestScoreProvider(gameType.id));
     String? bestLabel;
     if (best != null) {
-      bestLabel = _formatScore(best.score, metric, isAr);
+      bestLabel = _formatScore(best.score, metric, context);
     }
 
     return Scaffold(
@@ -107,9 +111,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
                 children: [
                   // ─── Header ─────────────────────────────────────
                   Align(
-                    alignment: isAr
-                        ? Alignment.topRight
-                        : Alignment.topLeft,
+                    alignment: AlignmentDirectional.topStart,
                     child: Text(
                       gameName,
                       style: AppTypography.headingMedium,
@@ -135,7 +137,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
                               color: AppColors.gold, size: 18),
                           const SizedBox(width: 6),
                           Text(
-                            isAr ? 'رقم قياسي جديد! 🏆' : 'New Record! 🏆',
+                            tr(context, 'رقم قياسي جديد! 🏆', 'New Record! 🏆',
+                                '新纪录！🏆'),
                             style: AppTypography.labelMedium
                                 .copyWith(color: AppColors.gold),
                           ),
@@ -175,7 +178,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          isAr ? 'نتيجتك' : 'Your Score',
+                          tr(context, 'نتيجتك', 'Your Score', '你的分数'),
                           style: AppTypography.caption,
                           textAlign: TextAlign.center,
                         ),
@@ -192,9 +195,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
                                   color: AppColors.gold, size: 14),
                               const SizedBox(width: 6),
                               Text(
-                                isAr
-                                    ? 'أفضل نتيجة: $bestLabel'
-                                    : 'Best: $bestLabel',
+                                tr(context, 'أفضل نتيجة: ', 'Best: ', '最佳：') +
+                                    bestLabel,
                                 style: AppTypography.labelMedium.copyWith(
                                   color: AppColors.textSecondary,
                                 ),
@@ -223,11 +225,12 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          isAr ? 'مقياس المنطق LQ' : 'Logic Quotient LQ',
+                          tr(context, 'مقياس المنطق LQ', 'Logic Quotient LQ',
+                              '逻辑商数 LQ'),
                           style: AppTypography.labelMedium,
                         ),
                         Text(
-                          isAr
+                          useArabicDigits(context)
                               ? ability.lqScore.toStringAsFixed(1)
                                   .toArabicNumerals()
                               : ability.lqScore.toStringAsFixed(1),
@@ -249,7 +252,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
                         context.pushReplacement(
                             AppRoutes.gameRoute(gameType));
                       },
-                      child: Text(isAr ? 'العب مجددًا' : 'Play Again'),
+                      child: Text(tr(context, 'العب مجددًا', 'Play Again', '再玩一次')),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -260,8 +263,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
                         Haptics.light();
                         context.go(AppRoutes.dashboard);
                       },
-                      child: Text(
-                          isAr ? 'العودة للرئيسية' : 'Back to Dashboard'),
+                      child: Text(tr(context, 'العودة للرئيسية', 'Back to Dashboard',
+                          '返回首页')),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -287,29 +290,43 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
         GameType.towerOfHanoi => AppColors.towerOfHanoi,
       };
 
-  String _nameAr(GameType type) => switch (type) {
-        GameType.schulteGrid => 'شبكة شولت',
-        GameType.reactionTime => 'وقت التفاعل',
-        GameType.numberMemory => 'ذاكرة الأرقام',
-        GameType.stroopTest => 'اختبار ستروب',
-        GameType.visualMemory => 'ذاكرة بصرية',
-        GameType.sequenceMemory => 'تسلسل',
-        GameType.numberMatrix => 'مصفوفة الأرقام',
-        GameType.reverseMemory => 'ذاكرة العكس',
-        GameType.slidingPuzzle => 'لغز الأرقام',
-        GameType.towerOfHanoi => 'برج هانو',
-      };
-
-  String _nameEn(GameType type) => switch (type) {
-        GameType.schulteGrid => 'Schulte Grid',
-        GameType.reactionTime => 'Reaction Time',
-        GameType.numberMemory => 'Number Memory',
-        GameType.stroopTest => 'Stroop Test',
-        GameType.visualMemory => 'Visual Memory',
-        GameType.sequenceMemory => 'Sequence Memory',
-        GameType.numberMatrix => 'Number Matrix',
-        GameType.reverseMemory => 'Reverse Memory',
-        GameType.slidingPuzzle => 'Sliding Puzzle',
-        GameType.towerOfHanoi => 'Tower of Hanoi',
-      };
+  String _nameTr(BuildContext context, GameType type) => tr(
+        context,
+        switch (type) {
+          GameType.schulteGrid => 'شبكة شولت',
+          GameType.reactionTime => 'وقت التفاعل',
+          GameType.numberMemory => 'ذاكرة الأرقام',
+          GameType.stroopTest => 'اختبار ستروب',
+          GameType.visualMemory => 'ذاكرة بصرية',
+          GameType.sequenceMemory => 'تسلسل',
+          GameType.numberMatrix => 'مصفوفة الأرقام',
+          GameType.reverseMemory => 'ذاكرة العكس',
+          GameType.slidingPuzzle => 'لغز الأرقام',
+          GameType.towerOfHanoi => 'برج هانو',
+        },
+        switch (type) {
+          GameType.schulteGrid => 'Schulte Grid',
+          GameType.reactionTime => 'Reaction Time',
+          GameType.numberMemory => 'Number Memory',
+          GameType.stroopTest => 'Stroop Test',
+          GameType.visualMemory => 'Visual Memory',
+          GameType.sequenceMemory => 'Sequence Memory',
+          GameType.numberMatrix => 'Number Matrix',
+          GameType.reverseMemory => 'Reverse Memory',
+          GameType.slidingPuzzle => 'Sliding Puzzle',
+          GameType.towerOfHanoi => 'Tower of Hanoi',
+        },
+        switch (type) {
+          GameType.schulteGrid => '舒尔特方格',
+          GameType.numberMemory => '数字记忆',
+          GameType.stroopTest => '斯特鲁普测试',
+          GameType.visualMemory => '视觉记忆',
+          GameType.sequenceMemory => '序列记忆',
+          GameType.numberMatrix => '数字矩阵',
+          GameType.reverseMemory => '数字倒序',
+          GameType.slidingPuzzle => '数字华容道',
+          GameType.towerOfHanoi => '汉诺塔',
+          GameType.reactionTime => '反应时间',
+        },
+      );
 }

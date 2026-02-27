@@ -8,8 +8,10 @@ import '../../../core/constants/app_typography.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/arabic_numerals.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
 enum _SeqPhase { config, playing, inputting, feedback }
@@ -38,6 +40,15 @@ class _SequenceMemoryScreenState
   Timer? _playbackTimer;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      GameRulesHelper.ensureShownOnce(context, GameType.sequenceMemory);
+    });
+  }
+
+  @override
   void dispose() {
     _playbackTimer?.cancel();
     super.dispose();
@@ -45,7 +56,7 @@ class _SequenceMemoryScreenState
 
   void _startGame() {
     setState(() {
-      _sequence = [_rng.nextInt(_gridCells)];
+      _sequence = [_rng.nextInt(_gridCells), _rng.nextInt(_gridCells)];
       _maxLength = 0;
       _phase = _SeqPhase.config;
     });
@@ -150,15 +161,13 @@ class _SequenceMemoryScreenState
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          isAr ? 'تسلسل' : 'Sequence Memory',
+          tr(context, 'تسلسل', 'Sequence Memory', '序列记忆'),
           style: AppTypography.headingMedium,
         ),
         actions: [
@@ -167,42 +176,48 @@ class _SequenceMemoryScreenState
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Center(
                 child: Text(
-                  isAr
+                  useArabicDigits(context)
                       ? '${_sequence.length.toArabicDigits()} مربعات'
-                      : '${_sequence.length} squares',
+                      : '${_sequence.length} ${tr(context, 'مربعات', 'squares', '格')}',
                   style: AppTypography.labelLarge
                       .copyWith(color: AppColors.sequenceMemory),
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () =>
+                GameRulesHelper.showRulesDialog(context, GameType.sequenceMemory),
+          ),
         ],
       ),
       body: switch (_phase) {
-        _SeqPhase.config => _buildConfig(isAr),
-        _ => _buildGame(isAr),
+        _SeqPhase.config => _buildConfig(context),
+        _ => _buildGame(context),
       },
     );
   }
 
-  Widget _buildConfig(bool isAr) {
+  Widget _buildConfig(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.apps, color: AppColors.sequenceMemory, size: 64),
+            const Icon(Icons.apps, color: AppColors.sequenceMemory, size: 64),
             const SizedBox(height: 24),
             Text(
-              isAr ? 'تسلسل' : 'Sequence Memory',
+              tr(context, 'تسلسل', 'Sequence Memory', '序列记忆'),
               style: AppTypography.headingMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              isAr
-                  ? 'كرّر التسلسل الذي أضاءت به المربعات'
-                  : 'Repeat the sequence in which the squares lit up',
+              tr(context,
+                  'كرّر التسلسل الذي أضاءت به المربعات',
+                  'Repeat the sequence in which the squares lit up',
+                  '重复亮起方格的序列'),
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
@@ -212,7 +227,7 @@ class _SequenceMemoryScreenState
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _startGame,
-                child: Text(isAr ? 'ابدأ' : 'Start'),
+                child: Text(tr(context, 'ابدأ', 'Start', '开始')),
               ),
             ),
           ],
@@ -221,7 +236,7 @@ class _SequenceMemoryScreenState
     );
   }
 
-  Widget _buildGame(bool isAr) {
+  Widget _buildGame(BuildContext context) {
     final isPlayback = _phase == _SeqPhase.playing;
     final isInput = _phase == _SeqPhase.inputting;
 
@@ -233,10 +248,10 @@ class _SequenceMemoryScreenState
           children: [
             Text(
               isPlayback
-                  ? (isAr ? 'انظر...' : 'Watch...')
+                  ? tr(context, 'انظر...', 'Watch...', '看...')
                   : (isInput
-                      ? (isAr ? 'كرر التسلسل' : 'Repeat the sequence')
-                      : (isAr ? 'صحيح!' : 'Correct!')),
+                      ? tr(context, 'كرر التسلسل', 'Repeat the sequence', '重复序列')
+                      : tr(context, 'صحيح!', 'Correct!', '正确！')),
               style: AppTypography.labelMedium,
             ),
             const SizedBox(height: 24),
@@ -286,7 +301,7 @@ class _SequenceMemoryScreenState
             const SizedBox(height: 20),
             if (isInput)
               Text(
-                isAr
+                useArabicDigits(context)
                     ? '${_inputIndex.toArabicDigits()} / ${_sequence.length.toArabicDigits()}'
                     : '$_inputIndex / ${_sequence.length}',
                 style: AppTypography.caption,

@@ -3,20 +3,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
+import '../../core/utils/tr.dart';
 import '../../data/models/ability_snapshot.dart';
 import '../../data/models/score_record.dart';
 import '../../domain/enums/game_type.dart';
 import '../providers/app_providers.dart';
+import '../dashboard/widgets/ability_radar_chart.dart';
+import '../dashboard/widgets/lq_hero.dart';
 
 class AnalyticsScreen extends ConsumerWidget {
   const AnalyticsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
     final snapshot = ref.watch(abilityProvider);
     final history = ref.read(analyticsRepoProvider).getLqHistory();
     final scoreRepo = ref.read(scoreRepoProvider);
+    final allScores = scoreRepo.getAllScores();
+    final playedGames = allScores.map((s) => s.gameId).toSet().length;
+    final gameInfo = HomeGameInfo(
+      totalGames: GameType.values.length,
+      playedGames: playedGames,
+      totalSessions: allScores.length,
+    );
 
     // Pre-compute per-game stats
     final gameStats = GameType.values.map((g) {
@@ -35,35 +44,32 @@ class AnalyticsScreen extends ConsumerWidget {
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          isAr ? 'التحليلات' : 'Analytics',
+          tr(context, 'التحليلات', 'Analytics', '分析'),
           style: AppTypography.headingMedium,
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         children: [
-          // ─── LQ Score Card ──────────────────────────────────────────
-          _buildLQCard(isAr, snapshot),
+          // ─── Overview (moved from dashboard) ──────────────────────
+          LqHero(snapshot: snapshot, gameInfo: gameInfo),
           const SizedBox(height: 20),
 
           // ─── LQ History Chart (only if ≥ 2 data points) ────────────
           if (history.length >= 2) ...[
-            _sectionLabel(isAr ? 'سجل المقياس' : 'LQ History'),
+            _sectionLabel(tr(context, 'سجل المقياس', 'LQ History', 'LQ 历史')),
             const SizedBox(height: 10),
             _buildChart(history),
             const SizedBox(height: 20),
           ],
 
-          // ─── Five Dimensions ────────────────────────────────────────
-          _sectionLabel(isAr ? 'الأبعاد الخمسة' : 'Five Dimensions'),
-          const SizedBox(height: 10),
-          _buildDimensions(isAr, snapshot),
+          AbilityRadarChart(snapshot: snapshot, size: 240),
           const SizedBox(height: 20),
 
           // ─── Per-game stats ─────────────────────────────────────────
-          _sectionLabel(isAr ? 'إحصائيات الألعاب' : 'Game Statistics'),
+          _sectionLabel(tr(context, 'إحصائيات الألعاب', 'Game Statistics', '游戏统计')),
           const SizedBox(height: 10),
-          _buildGames(isAr, gameStats),
+          _buildGames(context, gameStats),
           const SizedBox(height: 40),
         ],
       ),
@@ -72,74 +78,6 @@ class AnalyticsScreen extends ConsumerWidget {
 
   Widget _sectionLabel(String text) =>
       Text(text, style: AppTypography.caption);
-
-  // ─── LQ Card ────────────────────────────────────────────────────────────
-  Widget _buildLQCard(bool isAr, AbilitySnapshot s) {
-    final lq = s.lqScore;
-    final Color tierColor;
-    final String tierLabel;
-
-    if (lq >= 90) {
-      tierColor = AppColors.gold;
-      tierLabel = isAr ? 'معلم' : 'Master';
-    } else if (lq >= 70) {
-      tierColor = AppColors.goldMuted;
-      tierLabel = isAr ? 'محترف' : 'Professional';
-    } else if (lq >= 50) {
-      tierColor = AppColors.reaction;
-      tierLabel = isAr ? 'متوسط' : 'Intermediate';
-    } else {
-      tierColor = AppColors.textSecondary;
-      tierLabel = isAr ? 'مبتدئ' : 'Beginner';
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [AppColors.surfaceElevated, AppColors.surface],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderGold, width: 0.5),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isAr ? 'مقياس المنطق (LQ)' : 'Logic Quotient (LQ)',
-                  style: AppTypography.caption,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  lq.toStringAsFixed(1),
-                  style: AppTypography.displayLarge,
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: tierColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: tierColor, width: 1),
-            ),
-            child: Text(
-              tierLabel,
-              style: AppTypography.labelMedium.copyWith(color: tierColor),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // ─── LQ History Line Chart ──────────────────────────────────────────────
   Widget _buildChart(List<AbilitySnapshot> history) {
@@ -151,7 +89,7 @@ class AnalyticsScreen extends ConsumerWidget {
 
     return Container(
       height: 160,
-      padding: const EdgeInsets.fromLTRB(4, 12, 12, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(4, 12, 12, 8),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -201,13 +139,13 @@ class AnalyticsScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            bottomTitles: AxisTitles(
+            bottomTitles: const AxisTitles(
               sideTitles: SideTitles(showTitles: false),
             ),
-            topTitles: AxisTitles(
+            topTitles: const AxisTitles(
               sideTitles: SideTitles(showTitles: false),
             ),
-            rightTitles: AxisTitles(
+            rightTitles: const AxisTitles(
               sideTitles: SideTitles(showTitles: false),
             ),
           ),
@@ -221,82 +159,8 @@ class AnalyticsScreen extends ConsumerWidget {
     );
   }
 
-  // ─── Dimension Progress Bars ────────────────────────────────────────────
-  Widget _buildDimensions(bool isAr, AbilitySnapshot s) {
-    final dims = [
-      (isAr ? 'السرعة' : 'Speed', s.speedScore, AppColors.dimensionSpeed),
-      (
-        isAr ? 'الذاكرة' : 'Memory',
-        s.memoryScore,
-        AppColors.dimensionMemory
-      ),
-      (
-        isAr ? 'المنطق' : 'Space & Logic',
-        s.spaceLogicScore,
-        AppColors.dimensionSpaceLogic
-      ),
-      (
-        isAr ? 'التركيز' : 'Focus',
-        s.focusScore,
-        AppColors.dimensionFocus
-      ),
-      (
-        isAr ? 'الإدراك' : 'Perception',
-        s.perceptionScore,
-        AppColors.dimensionPerception
-      ),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
-      child: Column(
-        children: dims.map((d) {
-          final (name, score, color) = d;
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 100,
-                  child: Text(name, style: AppTypography.caption),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: score / 100,
-                      minHeight: 6,
-                      backgroundColor: AppColors.surfaceElevated,
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 32,
-                  child: Text(
-                    score.toStringAsFixed(0),
-                    style:
-                        AppTypography.labelMedium.copyWith(color: color),
-                    textAlign: TextAlign.end,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
   // ─── Game Stats Grid ────────────────────────────────────────────────────
-  Widget _buildGames(bool isAr, List<_GameStat> stats) {
+  Widget _buildGames(BuildContext context, List<_GameStat> stats) {
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
@@ -307,7 +171,7 @@ class AnalyticsScreen extends ConsumerWidget {
         childAspectRatio: 1.55,
       ),
       itemCount: stats.length,
-      itemBuilder: (_, i) => _GameCard(stat: stats[i], isAr: isAr),
+      itemBuilder: (ctx, i) => _GameCard(stat: stats[i]),
     );
   }
 }
@@ -328,9 +192,8 @@ class _GameStat {
 // ─── Game Card Widget ────────────────────────────────────────────────────────
 class _GameCard extends StatelessWidget {
   final _GameStat stat;
-  final bool isAr;
 
-  const _GameCard({required this.stat, required this.isAr});
+  const _GameCard({required this.stat});
 
   static String _nameAr(GameType g) => switch (g) {
         GameType.schulteGrid => 'شبكة شولت',
@@ -356,6 +219,19 @@ class _GameCard extends StatelessWidget {
         GameType.reverseMemory => 'Reverse Mem.',
         GameType.slidingPuzzle => 'Sliding Puzzle',
         GameType.towerOfHanoi => 'Tower of Hanoi',
+      };
+
+  static String _nameZh(GameType g) => switch (g) {
+        GameType.schulteGrid => '舒尔特方格',
+        GameType.reactionTime => '反应时间',
+        GameType.numberMemory => '数字记忆',
+        GameType.stroopTest => '斯特鲁普测试',
+        GameType.visualMemory => '视觉记忆',
+        GameType.sequenceMemory => '序列记忆',
+        GameType.numberMatrix => '数字矩阵',
+        GameType.reverseMemory => '数字倒序',
+        GameType.slidingPuzzle => '数字华容道',
+        GameType.towerOfHanoi => '汉诺塔',
       };
 
   static Color _color(GameType g) => switch (g) {
@@ -385,7 +261,7 @@ class _GameCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final g = stat.type;
     final color = _color(g);
-    final name = isAr ? _nameAr(g) : _nameEn(g);
+    final name = tr(context, _nameAr(g), _nameEn(g), _nameZh(g));
     final bestStr = _bestStr(stat.best, g);
     final plays = stat.playCount;
     final hasPlayed = plays > 0;
@@ -440,7 +316,7 @@ class _GameCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isAr ? 'الأفضل' : 'Best',
+                    tr(context, 'الأفضل', 'Best', '最佳'),
                     style: AppTypography.caption.copyWith(fontSize: 9),
                   ),
                   Text(
@@ -455,7 +331,7 @@ class _GameCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    isAr ? 'جلسات' : 'Plays',
+                    tr(context, 'جلسات', 'Plays', '局'),
                     style: AppTypography.caption.copyWith(fontSize: 9),
                   ),
                   Text(

@@ -1,6 +1,7 @@
 /// Utilities for Arabic numeral display
 /// Eastern Arabic numerals: ٠١٢٣٤٥٦٧٨٩
 /// Western Arabic numerals: 0123456789
+library;
 
 const _westernToArabic = {
   '0': '٠',

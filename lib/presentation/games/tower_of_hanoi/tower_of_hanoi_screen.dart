@@ -6,8 +6,10 @@ import '../../../core/constants/app_typography.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/utils/arabic_numerals.dart';
 import '../../../core/utils/haptics.dart';
+import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
 class TowerOfHanoiScreen extends ConsumerStatefulWidget {
@@ -27,6 +29,15 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
   int? _selectedPeg; // peg index user tapped first
   int _moves = 0;
   bool _gameActive = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      GameRulesHelper.ensureShownOnce(context, GameType.towerOfHanoi);
+    });
+  }
 
   void _startGame() {
     // Peg 0 starts with discs from bottom (largest) to top (smallest)
@@ -113,15 +124,13 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAr = Directionality.of(context) == TextDirection.rtl;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          isAr ? 'برج هانو' : 'Tower of Hanoi',
+          tr(context, 'برج هانو', 'Tower of Hanoi', '汉诺塔'),
           style: AppTypography.headingMedium,
         ),
         actions: [
@@ -130,21 +139,26 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Center(
                 child: Text(
-                  isAr
+                  useArabicDigits(context)
                       ? '${_moves.toArabicDigits()} حركة'
-                      : '$_moves moves',
+                      : '$_moves ${tr(context, 'حركة', 'moves', '步')}',
                   style: AppTypography.labelLarge
                       .copyWith(color: AppColors.towerOfHanoi),
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () =>
+                GameRulesHelper.showRulesDialog(context, GameType.towerOfHanoi),
+          ),
         ],
       ),
-      body: _showingConfig ? _buildConfig(isAr) : _buildGame(isAr),
+      body: _showingConfig ? _buildConfig(context) : _buildGame(context),
     );
   }
 
-  Widget _buildConfig(bool isAr) {
+  Widget _buildConfig(BuildContext context) {
     final optimalMoves = (1 << _diskCount) - 1; // 2^n - 1
     return Center(
       child: Padding(
@@ -152,18 +166,19 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.layers, color: AppColors.towerOfHanoi, size: 64),
+            const Icon(Icons.layers, color: AppColors.towerOfHanoi, size: 64),
             const SizedBox(height: 24),
             Text(
-              isAr ? 'برج هانو' : 'Tower of Hanoi',
+              tr(context, 'برج هانو', 'Tower of Hanoi', '汉诺塔'),
               style: AppTypography.headingMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              isAr
-                  ? 'انقل جميع الأقراص من العمود إلى اليسار'
-                  : 'Move all discs to the rightmost peg',
+              tr(context,
+                  'انقل جميع الأقراص من العمود إلى اليسار',
+                  'Move all discs to the rightmost peg',
+                  '将所有圆盘从左柱移到右柱'),
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
@@ -200,14 +215,16 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            isAr ? n.toArabicDigits() : '$n',
+                            useArabicDigits(context)
+                                ? n.toArabicDigits()
+                                : '$n',
                             style: AppTypography.headingMedium.copyWith(
                                 color: selected
                                     ? AppColors.towerOfHanoi
                                     : AppColors.textPrimary),
                           ),
                           Text(
-                            isAr ? 'أقراص' : 'discs',
+                            tr(context, 'أقراص', 'discs', '盘'),
                             style: AppTypography.caption.copyWith(
                                 color: selected
                                     ? AppColors.towerOfHanoi
@@ -222,9 +239,9 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              isAr
+              useArabicDigits(context)
                   ? 'الحد الأدنى: ${optimalMoves.toArabicDigits()} حركة'
-                  : 'Optimal: $optimalMoves moves',
+                  : '${tr(context, 'الحد الأدنى: ', 'Optimal: ', '最少：')}$optimalMoves ${tr(context, 'حركة', 'moves', '步')}',
               style: AppTypography.caption,
             ),
             const SizedBox(height: 40),
@@ -232,7 +249,7 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _startGame,
-                child: Text(isAr ? 'ابدأ' : 'Start'),
+                child: Text(tr(context, 'ابدأ', 'Start', '开始')),
               ),
             ),
           ],
@@ -241,17 +258,32 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
     );
   }
 
-  Widget _buildGame(bool isAr) {
+  Widget _buildGame(BuildContext context) {
     return Column(
       children: [
-        // Instructions
+        // Instructions + optimal moves
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Text(
-            _selectedPeg != null
-                ? (isAr ? 'اختر العمود الهدف' : 'Choose destination peg')
-                : (isAr ? 'اضغط على عمود لاختيار القرص العلوي' : 'Tap a peg to select the top disc'),
-            style: AppTypography.caption,
+          child: Column(
+            children: [
+              Text(
+                _selectedPeg != null
+                    ? tr(context, 'اختر العمود الهدف', 'Choose destination peg',
+                        '选择目标柱')
+                    : tr(context, 'اضغط على عمود لاختيار القرص العلوي',
+                        'Tap a peg to select the top disc', '点击柱子选择顶部的圆盘'),
+                style: AppTypography.caption,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                useArabicDigits(context)
+                    ? 'الحد الأدنى: ${((1 << _diskCount) - 1).toArabicDigits()} حركة'
+                    : '${tr(context, 'الحد الأدنى: ', 'Optimal: ', '最少：')}${(1 << _diskCount) - 1} ${tr(context, 'حركة', 'moves', '步')}',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.towerOfHanoi.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
           ),
         ),
         // Pegs
@@ -274,7 +306,7 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
                         // Peg label
                         Text(
                           isTarget
-                              ? (isAr ? 'الهدف' : 'Goal')
+                              ? tr(context, 'الهدف', 'Goal', '目标')
                               : '',
                           style: AppTypography.caption.copyWith(
                               color: AppColors.towerOfHanoi),
@@ -327,17 +359,10 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          isAr
-                              ? (pegIdx == 0
-                                  ? 'ثالث'
-                                  : pegIdx == 1
-                                      ? 'وسط'
-                                      : 'أول')
-                              : (pegIdx == 0
-                                  ? 'A'
-                                  : pegIdx == 1
-                                      ? 'B'
-                                      : 'C'),
+                          tr(context,
+                              pegIdx == 0 ? 'ثالث' : pegIdx == 1 ? 'وسط' : 'أول',
+                              pegIdx == 0 ? 'A' : pegIdx == 1 ? 'B' : 'C',
+                              pegIdx == 0 ? 'A' : pegIdx == 1 ? 'B' : 'C'),
                           style: AppTypography.caption.copyWith(
                               color: isTarget
                                   ? AppColors.towerOfHanoi
