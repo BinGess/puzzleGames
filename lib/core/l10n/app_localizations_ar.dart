@@ -9,7 +9,7 @@ class AppL10nAr extends AppL10n {
   AppL10nAr([String locale = 'ar']) : super(locale);
 
   @override
-  String get appName => 'مختبر المنطق';
+  String get appName => 'جيم العقل';
 
   @override
   String get startTest => 'ابدأ الاختبار';
@@ -222,6 +222,12 @@ class AppL10nAr extends AppL10n {
 
   @override
   String get soundDisabled => 'الأصوات معطّلة';
+
+  @override
+  String get saveImageSuccess => 'تم حفظ الصورة في المعرض';
+
+  @override
+  String get saveImageFailed => 'تعذر حفظ الصورة';
 
   @override
   String get hapticsEnabled => 'الاهتزاز مفعّل';

@@ -39,6 +39,9 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
   ProfileNotifier(this._repo) : super(_repo.profile) {
     // Sync haptics state
     Haptics.setEnabled(state.hapticsEnabled);
+    // Sync sound state
+    Haptics.setSoundLevel(state.soundVolumeLevel);
+    Haptics.setSoundEnabled(state.soundEnabled);
   }
 
   Future<void> setLanguage(String code) async {
@@ -47,7 +50,48 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
   }
 
   Future<void> setSound(bool enabled) async {
-    await _repo.updateSound(enabled);
+    final currentLevel = state.soundVolumeLevel.clamp(0, 3);
+    final nextLevel = enabled && currentLevel == 0 ? 2 : currentLevel;
+    final nextEnabled = enabled && nextLevel > 0;
+    Haptics.setSoundLevel(nextLevel);
+    Haptics.setSoundEnabled(nextEnabled);
+    await _repo.saveProfile(
+      state.copyWith(
+        soundEnabled: nextEnabled,
+        soundVolumeLevel: nextLevel,
+      ),
+    );
+    state = _repo.profile;
+  }
+
+  Future<void> setSoundVolumeLevel(int level) async {
+    final normalized = level.clamp(0, 3);
+    final enabled = normalized > 0 && state.soundEnabled;
+    Haptics.setSoundLevel(normalized);
+    Haptics.setSoundEnabled(enabled);
+    await _repo.saveProfile(
+      state.copyWith(
+        soundVolumeLevel: normalized,
+        soundEnabled: enabled,
+      ),
+    );
+    state = _repo.profile;
+  }
+
+  Future<void> setSoundProfile({
+    required bool enabled,
+    required int volumeLevel,
+  }) async {
+    final normalized = volumeLevel.clamp(0, 3);
+    final effectiveEnabled = enabled && normalized > 0;
+    Haptics.setSoundLevel(normalized);
+    Haptics.setSoundEnabled(effectiveEnabled);
+    await _repo.saveProfile(
+      state.copyWith(
+        soundEnabled: effectiveEnabled,
+        soundVolumeLevel: normalized,
+      ),
+    );
     state = _repo.profile;
   }
 

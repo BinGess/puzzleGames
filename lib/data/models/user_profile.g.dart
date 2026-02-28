@@ -21,6 +21,7 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       age: fields[1] as int?,
       languageCode: fields[2] as String,
       soundEnabled: fields[3] as bool,
+      soundVolumeLevel: (fields[7] as int?) ?? 2,
       hapticsEnabled: fields[4] as bool,
       fontScale: fields[5] as double,
       createdAt: fields[6] as DateTime,
@@ -30,7 +31,7 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
   @override
   void write(BinaryWriter writer, UserProfile obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -39,6 +40,8 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       ..write(obj.languageCode)
       ..writeByte(3)
       ..write(obj.soundEnabled)
+      ..writeByte(7)
+      ..write(obj.soundVolumeLevel)
       ..writeByte(4)
       ..write(obj.hapticsEnabled)
       ..writeByte(5)

@@ -21,8 +21,7 @@ class ReactionTimeScreen extends ConsumerStatefulWidget {
   const ReactionTimeScreen({super.key});
 
   @override
-  ConsumerState<ReactionTimeScreen> createState() =>
-      _ReactionTimeScreenState();
+  ConsumerState<ReactionTimeScreen> createState() => _ReactionTimeScreenState();
 }
 
 class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
@@ -45,6 +44,7 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      Haptics.setSoundGameId(GameType.reactionTime.id);
       GameRulesHelper.ensureShownOnce(context, GameType.reactionTime);
     });
   }

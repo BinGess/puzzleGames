@@ -42,6 +42,7 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      Haptics.setSoundGameId(GameType.schulteGrid.id);
       GameRulesHelper.ensureShownOnce(context, GameType.schulteGrid);
     });
   }
@@ -162,7 +163,8 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen> {
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            icon:
+                const Icon(Icons.help_outline, color: AppColors.textSecondary),
             onPressed: () =>
                 GameRulesHelper.showRulesDialog(context, GameType.schulteGrid),
           ),

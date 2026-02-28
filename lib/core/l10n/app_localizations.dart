@@ -102,7 +102,7 @@ abstract class AppL10n {
   /// App name
   ///
   /// In ar, this message translates to:
-  /// **'مختبر المنطق'**
+  /// **'جيم العقل'**
   String get appName;
 
   /// No description provided for @startTest.
@@ -518,6 +518,18 @@ abstract class AppL10n {
   /// In ar, this message translates to:
   /// **'الأصوات معطّلة'**
   String get soundDisabled;
+
+  /// No description provided for @saveImageSuccess.
+  ///
+  /// In ar, this message translates to:
+  /// **'تم حفظ الصورة في المعرض'**
+  String get saveImageSuccess;
+
+  /// No description provided for @saveImageFailed.
+  ///
+  /// In ar, this message translates to:
+  /// **'تعذر حفظ الصورة'**
+  String get saveImageFailed;
 
   /// No description provided for @hapticsEnabled.
   ///

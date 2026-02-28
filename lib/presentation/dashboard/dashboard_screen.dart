@@ -46,7 +46,9 @@ class DashboardScreen extends ConsumerWidget {
                   const SizedBox(width: 12),
                 ],
                 leading: _GlassIconButton(
-                  icon: Icons.bar_chart_rounded,
+                  icon: Icons.insights_rounded,
+                  emphasized: true,
+                  hideBackground: true,
                   onTap: () {
                     Haptics.selection();
                     context.push(AppRoutes.analytics);
@@ -55,7 +57,7 @@ class DashboardScreen extends ConsumerWidget {
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 40),
                 sliver: SliverLayoutBuilder(
                   builder: (context, constraints) {
                     final width = constraints.crossAxisExtent;
@@ -66,7 +68,7 @@ class DashboardScreen extends ConsumerWidget {
                             : width >= 640
                                 ? 3
                                 : 2;
-                    const spacing = 12.0;
+                    const spacing = 10.0;
                     final cardWidth = (width - (crossAxisCount - 1) * spacing) /
                         crossAxisCount;
                     final cardAspectRatio = cardWidth >= 220 ? 0.98 : 0.88;
@@ -331,26 +333,53 @@ class _TexturePainter extends CustomPainter {
 class _GlassIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final bool emphasized;
+  final bool hideBackground;
 
   const _GlassIconButton({
     required this.icon,
     required this.onTap,
+    this.emphasized = false,
+    this.hideBackground = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final size = emphasized ? 46.0 : 40.0;
+    final radius = BorderRadius.circular(emphasized ? 14 : 12);
+    final iconSize = emphasized ? 24.0 : 20.0;
+    final iconColor =
+        emphasized ? AppColors.goldBright : AppColors.textSecondary;
+    final backgroundColor = emphasized
+        ? AppColors.gold.withValues(alpha: 0.18)
+        : AppColors.surface.withValues(alpha: 0.55);
+    final borderColor = emphasized
+        ? AppColors.gold.withValues(alpha: 0.58)
+        : Colors.transparent;
+
     return SizedBox(
-      width: 40,
-      height: 40,
+      width: size,
+      height: size,
       child: Material(
-        color: AppColors.surface.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(12),
+        color: hideBackground ? Colors.transparent : backgroundColor,
+        borderRadius: radius,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: BorderSide(
+            color: hideBackground ? Colors.transparent : borderColor,
+            width: hideBackground ? 0 : (emphasized ? 1.1 : 0),
+          ),
+        ),
+        shadowColor: hideBackground
+            ? null
+            : (emphasized ? AppColors.gold.withValues(alpha: 0.42) : null),
+        elevation: hideBackground ? 0 : (emphasized ? 3 : 0),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: radius,
           splashColor: AppColors.gold.withValues(alpha: 0.10),
           highlightColor: AppColors.gold.withValues(alpha: 0.06),
           onTap: onTap,
-          child: Icon(icon, color: AppColors.textSecondary, size: 20),
+          child: Icon(icon, color: iconColor, size: iconSize),
         ),
       ),
     );

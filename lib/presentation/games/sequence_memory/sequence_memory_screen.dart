@@ -24,8 +24,7 @@ class SequenceMemoryScreen extends ConsumerStatefulWidget {
       _SequenceMemoryScreenState();
 }
 
-class _SequenceMemoryScreenState
-    extends ConsumerState<SequenceMemoryScreen> {
+class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
   static const _gridCells = 9; // 3×3
 
   final _rng = Random();
@@ -35,6 +34,9 @@ class _SequenceMemoryScreenState
   int _playbackIndex = 0; // which cell is currently lit during playback
   int _inputIndex = 0; // how many cells user has tapped
   int? _litCell; // cell index currently lit
+  bool _litCellIsError =
+      false; // whether current lit cell should render as error
+  bool? _lastFeedbackCorrect; // null=none, true=correct, false=wrong
   int _maxLength = 0;
 
   Timer? _playbackTimer;
@@ -44,6 +46,7 @@ class _SequenceMemoryScreenState
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      Haptics.setSoundGameId(GameType.sequenceMemory.id);
       GameRulesHelper.ensureShownOnce(context, GameType.sequenceMemory);
     });
   }
@@ -59,6 +62,8 @@ class _SequenceMemoryScreenState
       _sequence = [_rng.nextInt(_gridCells), _rng.nextInt(_gridCells)];
       _maxLength = 0;
       _phase = _SeqPhase.config;
+      _litCellIsError = false;
+      _lastFeedbackCorrect = null;
     });
     _playSequence();
   }
@@ -68,6 +73,8 @@ class _SequenceMemoryScreenState
       _phase = _SeqPhase.playing;
       _playbackIndex = 0;
       _litCell = null;
+      _litCellIsError = false;
+      _lastFeedbackCorrect = null;
     });
 
     _playbackTimer?.cancel();
@@ -84,11 +91,17 @@ class _SequenceMemoryScreenState
     }
 
     final cell = _sequence[_playbackIndex];
-    setState(() => _litCell = cell);
+    setState(() {
+      _litCell = cell;
+      _litCellIsError = false;
+    });
     Haptics.selection();
 
     _playbackTimer = Timer(const Duration(milliseconds: 600), () {
-      setState(() => _litCell = null);
+      setState(() {
+        _litCell = null;
+        _litCellIsError = false;
+      });
       _playbackTimer = Timer(const Duration(milliseconds: 200), () {
         _playbackIndex++;
         _playStep();
@@ -104,6 +117,7 @@ class _SequenceMemoryScreenState
       Haptics.light();
       setState(() {
         _litCell = index;
+        _litCellIsError = false;
         _inputIndex++;
       });
 
@@ -116,7 +130,10 @@ class _SequenceMemoryScreenState
           _maxLength = _sequence.length;
           _sequence.add(_rng.nextInt(_gridCells));
           _inputIndex = 0;
-          setState(() => _phase = _SeqPhase.feedback);
+          setState(() {
+            _phase = _SeqPhase.feedback;
+            _lastFeedbackCorrect = true;
+          });
           Future.delayed(const Duration(milliseconds: 400), () {
             if (mounted) _playSequence();
           });
@@ -127,9 +144,11 @@ class _SequenceMemoryScreenState
       Haptics.medium();
       setState(() {
         _litCell = index;
+        _litCellIsError = true;
+        _lastFeedbackCorrect = false;
         _phase = _SeqPhase.feedback;
       });
-      Future.delayed(const Duration(milliseconds: 800), _finishGame);
+      Future.delayed(const Duration(milliseconds: 1000), _finishGame);
     }
   }
 
@@ -185,9 +204,10 @@ class _SequenceMemoryScreenState
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
-            onPressed: () =>
-                GameRulesHelper.showRulesDialog(context, GameType.sequenceMemory),
+            icon:
+                const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () => GameRulesHelper.showRulesDialog(
+                context, GameType.sequenceMemory),
           ),
         ],
       ),
@@ -214,7 +234,8 @@ class _SequenceMemoryScreenState
             ),
             const SizedBox(height: 12),
             Text(
-              tr(context,
+              tr(
+                  context,
                   'كرّر التسلسل الذي أضاءت به المربعات',
                   'Repeat the sequence in which the squares lit up',
                   '重复亮起方格的序列'),
@@ -250,9 +271,18 @@ class _SequenceMemoryScreenState
               isPlayback
                   ? tr(context, 'انظر...', 'Watch...', '看...')
                   : (isInput
-                      ? tr(context, 'كرر التسلسل', 'Repeat the sequence', '重复序列')
-                      : tr(context, 'صحيح!', 'Correct!', '正确！')),
-              style: AppTypography.labelMedium,
+                      ? tr(
+                          context, 'كرر التسلسل', 'Repeat the sequence', '重复序列')
+                      : (_lastFeedbackCorrect == false
+                          ? tr(context, 'خطأ!', 'Wrong!', '错误！')
+                          : tr(context, 'صحيح!', 'Correct!', '正确！'))),
+              style: AppTypography.labelMedium.copyWith(
+                color: _phase == _SeqPhase.feedback
+                    ? (_lastFeedbackCorrect == false
+                        ? AppColors.error
+                        : AppColors.success)
+                    : AppColors.textPrimary,
+              ),
             ),
             const SizedBox(height: 24),
             AspectRatio(
@@ -267,6 +297,9 @@ class _SequenceMemoryScreenState
                 itemCount: _gridCells,
                 itemBuilder: (ctx, i) {
                   final isLit = _litCell == i;
+                  final litColor = _litCellIsError
+                      ? AppColors.error
+                      : AppColors.sequenceMemory;
 
                   return GestureDetector(
                     onTap: isInput ? () => _onCellTap(i) : null,
@@ -274,20 +307,17 @@ class _SequenceMemoryScreenState
                       duration: const Duration(milliseconds: 150),
                       decoration: BoxDecoration(
                         color: isLit
-                            ? AppColors.sequenceMemory.withValues(alpha: 0.7)
+                            ? litColor.withValues(alpha: 0.7)
                             : const Color(0xFF1A1A26),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isLit
-                              ? AppColors.sequenceMemory
-                              : AppColors.border,
+                          color: isLit ? litColor : AppColors.border,
                           width: isLit ? 1.5 : 0.5,
                         ),
                         boxShadow: isLit
                             ? [
                                 BoxShadow(
-                                  color: AppColors.sequenceMemory
-                                      .withValues(alpha: 0.4),
+                                  color: litColor.withValues(alpha: 0.4),
                                   blurRadius: 12,
                                 )
                               ]
@@ -299,13 +329,21 @@ class _SequenceMemoryScreenState
               ),
             ),
             const SizedBox(height: 20),
-            if (isInput)
-              Text(
-                useArabicDigits(context)
-                    ? '${_inputIndex.toArabicDigits()} / ${_sequence.length.toArabicDigits()}'
-                    : '$_inputIndex / ${_sequence.length}',
-                style: AppTypography.caption,
+            SizedBox(
+              height: 20,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 160),
+                opacity: isInput ? 1 : 0,
+                child: Center(
+                  child: Text(
+                    useArabicDigits(context)
+                        ? '${_inputIndex.toArabicDigits()} / ${_sequence.length.toArabicDigits()}'
+                        : '$_inputIndex / ${_sequence.length}',
+                    style: AppTypography.caption,
+                  ),
+                ),
               ),
+            ),
           ],
         ),
       ),

@@ -42,6 +42,7 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      Haptics.setSoundGameId(GameType.visualMemory.id);
       GameRulesHelper.ensureShownOnce(context, GameType.visualMemory);
     });
   }
@@ -84,8 +85,6 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
     if (_tappedIndices.contains(index)) return;
 
     final isCorrect = _litIndices.contains(index);
-    Haptics.light();
-
     setState(() => _tappedIndices.add(index));
 
     if (!isCorrect) {
@@ -95,6 +94,8 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
       Future.delayed(const Duration(milliseconds: 1000), _finishGame);
       return;
     }
+
+    Haptics.light();
 
     // Check if all lit cells tapped
     if (_tappedIndices.containsAll(_litIndices)) {
@@ -160,7 +161,8 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            icon:
+                const Icon(Icons.help_outline, color: AppColors.textSecondary),
             onPressed: () =>
                 GameRulesHelper.showRulesDialog(context, GameType.visualMemory),
           ),
@@ -182,7 +184,8 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.grid_view, color: AppColors.visualMemory, size: 64),
+            const Icon(Icons.grid_view,
+                color: AppColors.visualMemory, size: 64),
             const SizedBox(height: 24),
             Text(
               tr(context, 'ذاكرة بصرية', 'Visual Memory', '视觉记忆'),
@@ -191,10 +194,8 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              tr(context,
-                  'تذكّر المربعات التي أضاءت وحدد مواقعها',
-                  'Remember which squares lit up and tap them',
-                  '记住亮起的方格并点击它们'),
+              tr(context, 'تذكّر المربعات التي أضاءت وحدد مواقعها',
+                  'Remember which squares lit up and tap them', '记住亮起的方格并点击它们'),
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,

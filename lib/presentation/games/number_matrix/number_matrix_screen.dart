@@ -22,8 +22,7 @@ class NumberMatrixScreen extends ConsumerStatefulWidget {
   const NumberMatrixScreen({super.key});
 
   @override
-  ConsumerState<NumberMatrixScreen> createState() =>
-      _NumberMatrixScreenState();
+  ConsumerState<NumberMatrixScreen> createState() => _NumberMatrixScreenState();
 }
 
 class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
@@ -40,7 +39,7 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
   // Whether each cell has been correctly tapped
   List<bool> _done = List.filled(_total, false);
 
-  int _level = 4;        // how many numbers in current round
+  int _level = 4; // how many numbers in current round
   int _maxCompleted = 0; // highest level fully recalled (= score)
 
   int _nextExpected = 1; // next number user must tap
@@ -56,6 +55,7 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      Haptics.setSoundGameId(GameType.numberMatrix.id);
       GameRulesHelper.ensureShownOnce(context, GameType.numberMatrix);
     });
   }
@@ -219,10 +219,10 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
               ),
             ),
           IconButton(
-            icon: const Icon(
-                Icons.help_outline, color: AppColors.textSecondary),
-            onPressed: () => GameRulesHelper.showRulesDialog(
-                context, GameType.numberMatrix),
+            icon:
+                const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () =>
+                GameRulesHelper.showRulesDialog(context, GameType.numberMatrix),
           ),
         ],
       ),
@@ -318,10 +318,10 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
               child: Text(
                 key: ValueKey(isShowing),
                 isShowing
-                    ? tr(context, 'اضغط على ١ للبدء',
-                        'Tap ١ to begin', '点击 １ 开始')
-                    : tr(context, 'تذكّر وأكمل الترتيب',
-                        'Recall the order', '凭记忆完成顺序'),
+                    ? tr(context, 'اضغط على ١ للبدء', 'Tap ١ to begin',
+                        '点击 １ 开始')
+                    : tr(context, 'تذكّر وأكمل الترتيب', 'Recall the order',
+                        '凭记忆完成顺序'),
                 style: AppTypography.labelMedium
                     .copyWith(color: AppColors.textSecondary),
               ),
@@ -332,8 +332,7 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
               aspectRatio: _cols / _rows,
               child: GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: _cols,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
@@ -430,9 +429,7 @@ class _ChimpCell extends StatelessWidget {
     // ── Tap handler ──
     // Showing: any non-empty cell can be tapped (only "1" has effect in logic)
     // Recalling: any non-done cell is tappable (including empty = wrong)
-    final bool tappable = isShowingPhase
-        ? (!isEmpty)
-        : (!isDone);
+    final bool tappable = isShowingPhase ? (!isEmpty) : (!isDone);
 
     return GestureDetector(
       onTap: tappable ? onTap : null,

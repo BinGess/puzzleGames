@@ -28,7 +28,7 @@ class AbilityRadarChart extends StatelessWidget {
           tickCount: 4,
           ticksTextStyle: AppTypography.caption.copyWith(
             color: AppColors.textDisabled,
-            fontSize: 9,
+            fontSize: 10,
           ),
           tickBorderData: const BorderSide(
             color: AppColors.border,
@@ -48,7 +48,7 @@ class AbilityRadarChart extends StatelessWidget {
           },
           titleTextStyle: AppTypography.caption.copyWith(
             color: AppColors.textSecondary,
-            fontSize: 10,
+            fontSize: 11,
           ),
           titlePositionPercentageOffset: 0.2,
           dataSets: [

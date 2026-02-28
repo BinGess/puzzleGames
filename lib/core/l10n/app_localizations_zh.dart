@@ -9,7 +9,7 @@ class AppL10nZh extends AppL10n {
   AppL10nZh([String locale = 'zh']) : super(locale);
 
   @override
-  String get appName => '逻辑实验室';
+  String get appName => '大脑健身房';
 
   @override
   String get startTest => '开始测试';
@@ -217,6 +217,12 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get soundDisabled => '声音关';
+
+  @override
+  String get saveImageSuccess => '已保存到相册';
+
+  @override
+  String get saveImageFailed => '保存图片失败';
 
   @override
   String get hapticsEnabled => '震动开';

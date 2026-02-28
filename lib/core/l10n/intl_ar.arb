@@ -2,7 +2,7 @@
   "@@locale": "ar",
   "@@context": "Logic Lab Arabic Gulf dialect",
 
-  "appName": "مختبر المنطق",
+  "appName": "جيم العقل",
   "@appName": {"description": "App name"},
 
   "startTest": "ابدأ الاختبار",
@@ -93,6 +93,8 @@
 
   "soundEnabled": "الأصوات مفعّلة",
   "soundDisabled": "الأصوات معطّلة",
+  "saveImageSuccess": "تم حفظ الصورة في المعرض",
+  "saveImageFailed": "تعذر حفظ الصورة",
   "hapticsEnabled": "الاهتزاز مفعّل",
   "hapticsDisabled": "الاهتزاز معطّل",
   "languageLabel": "اللغة",

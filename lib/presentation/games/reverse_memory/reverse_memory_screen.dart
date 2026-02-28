@@ -43,6 +43,7 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      Haptics.setSoundGameId(GameType.reverseMemory.id);
       GameRulesHelper.ensureShownOnce(context, GameType.reverseMemory);
     });
   }
@@ -63,8 +64,8 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
   }
 
   void _startRound() {
-    final digits = List.generate(
-        _currentLength, (_) => _rng.nextInt(10).toString());
+    final digits =
+        List.generate(_currentLength, (_) => _rng.nextInt(10).toString());
     _currentSequence = digits.join();
 
     final showSecs = 3 + max(0, (_currentLength - 3) * 0.5);
@@ -177,9 +178,10 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
-            onPressed: () =>
-                GameRulesHelper.showRulesDialog(context, GameType.reverseMemory),
+            icon:
+                const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () => GameRulesHelper.showRulesDialog(
+                context, GameType.reverseMemory),
           ),
         ],
       ),
@@ -199,7 +201,8 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.swap_horiz, color: AppColors.reverseMemory, size: 64),
+            const Icon(Icons.swap_horiz,
+                color: AppColors.reverseMemory, size: 64),
             const SizedBox(height: 24),
             Text(
               tr(context, 'ذاكرة العكس', 'Reverse Memory', '数字倒序'),
@@ -208,7 +211,8 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              tr(context,
+              tr(
+                  context,
                   'احفظ الأرقام ثم أدخلها بالترتيب المعكوس',
                   'Memorize the digits, then enter them in reverse order',
                   '记住数字并按倒序输入'),
@@ -240,24 +244,25 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
         children: [
           Text(
             displaySeq,
-            style: AppTypography.digitFlash.copyWith(
-                color: AppColors.reverseMemory),
+            style: AppTypography.digitFlash
+                .copyWith(color: AppColors.reverseMemory),
             textDirection: TextDirection.ltr,
           ),
           const SizedBox(height: 32),
           Text(
-            tr(context, 'يختفي خلال $_countdown ث', 'Disappears in $_countdown''s',
-                '$_countdown秒后消失'),
+            tr(context, 'يختفي خلال $_countdown ث',
+                'Disappears in $_countdown' 's', '$_countdown秒后消失'),
             style: AppTypography.caption,
           ),
           const SizedBox(height: 24),
           SizedBox(
             width: 200,
             child: LinearProgressIndicator(
-              value: _countdown / (3 + max(0, (_currentLength - 3) * 0.5)).ceil(),
+              value:
+                  _countdown / (3 + max(0, (_currentLength - 3) * 0.5)).ceil(),
               backgroundColor: AppColors.border,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppColors.reverseMemory),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(AppColors.reverseMemory),
             ),
           ),
         ],
@@ -266,9 +271,8 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
   }
 
   Widget _buildInput(BuildContext context) {
-    final displayInput = useArabicDigits(context)
-        ? _inputValue.toArabicNumerals()
-        : _inputValue;
+    final displayInput =
+        useArabicDigits(context) ? _inputValue.toArabicNumerals() : _inputValue;
     return Column(
       children: [
         Expanded(
@@ -283,18 +287,18 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  tr(context, '(إذا رأيت ١٢٣ أدخل ٣٢١)', '(If you saw 123, enter 321)',
-                      '(如看到 123，输入 321)'),
+                  tr(context, '(إذا رأيت ١٢٣ أدخل ٣٢١)',
+                      '(If you saw 123, enter 321)', '(如看到 123，输入 321)'),
                   style: AppTypography.caption,
                 ),
                 const SizedBox(height: 24),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 32, vertical: 20),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
                   decoration: const BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(
-                          color: AppColors.reverseMemory, width: 2),
+                      bottom:
+                          BorderSide(color: AppColors.reverseMemory, width: 2),
                     ),
                   ),
                   child: Text(
@@ -303,7 +307,7 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
                       color: displayInput.isEmpty
                           ? AppColors.textDisabled
                           : AppColors.reverseMemory,
-                      letterSpacing: 6,
+                      letterSpacing: 4,
                     ),
                     textDirection: TextDirection.ltr,
                   ),
@@ -378,35 +382,42 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
               children: List.generate(rows[r].length, (c) {
                 final label = rows[r][c];
                 final westernDigit = westRows[r][c];
+                final isDelete = label == '⌫';
                 if (label.isEmpty) return const Expanded(child: SizedBox());
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: GestureDetector(
                       onTap: () {
-                        if (label == '⌫') {
+                        if (isDelete) {
                           _onDelete();
                         } else {
                           _onDigitTap(westernDigit);
                         }
                       },
                       child: Container(
-                        height: 56,
+                        height: 62,
                         decoration: BoxDecoration(
                           color: AppColors.surfaceElevated,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: AppColors.border, width: 0.5),
+                          border:
+                              Border.all(color: AppColors.border, width: 0.5),
                         ),
                         child: Center(
-                          child: Text(
-                            label,
-                            style: AppTypography.headingSmall.copyWith(
-                              color: label == '⌫'
-                                  ? AppColors.textSecondary
-                                  : AppColors.textPrimary,
-                            ),
-                          ),
+                          child: isDelete
+                              ? const Icon(
+                                  Icons.backspace_rounded,
+                                  size: 30,
+                                  color: AppColors.textSecondary,
+                                )
+                              : Text(
+                                  label,
+                                  style: AppTypography.headingSmall.copyWith(
+                                    fontSize: 28,
+                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                         ),
                       ),
                     ),
@@ -421,9 +432,8 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _inputValue.length == _currentLength
-                  ? _onSubmit
-                  : null,
+              onPressed:
+                  _inputValue.length == _currentLength ? _onSubmit : null,
               child: Text(tr(context, 'تأكيد', 'Submit', '确认')),
             ),
           ),

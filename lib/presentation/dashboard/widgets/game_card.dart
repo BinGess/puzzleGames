@@ -196,7 +196,7 @@ class _InfoSection extends StatelessWidget {
                       tagline,
                       style: AppTypography.caption.copyWith(
                         color: AppColors.textSecondary,
-                        fontSize: 10,
+                        fontSize: 11,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -244,7 +244,7 @@ class _NewBadge extends StatelessWidget {
         style: AppTypography.caption.copyWith(
           color: color,
           fontWeight: FontWeight.w600,
-          fontSize: 10,
+          fontSize: 11,
         ),
       ),
     );
@@ -292,7 +292,7 @@ class _ScoreBadge extends StatelessWidget {
             style: AppTypography.labelMedium.copyWith(
               color: color,
               fontWeight: FontWeight.w700,
-              fontSize: 11,
+              fontSize: 12,
             ),
           ),
         ],

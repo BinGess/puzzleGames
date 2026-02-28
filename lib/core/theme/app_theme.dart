@@ -98,17 +98,17 @@ abstract final class AppTheme {
         titleSmall: GoogleFonts.cairo(
             fontSize: 12, fontWeight: FontWeight.w500, height: 1.25),
         bodyLarge: GoogleFonts.cairo(
-            fontSize: 17, fontWeight: FontWeight.w400, height: 1.35),
+            fontSize: 17, fontWeight: FontWeight.w400, height: 1.5),
         bodyMedium: GoogleFonts.cairo(
-            fontSize: 16, fontWeight: FontWeight.w400, height: 1.35),
+            fontSize: 16, fontWeight: FontWeight.w400, height: 1.5),
         bodySmall: GoogleFonts.cairo(
-            fontSize: 14, fontWeight: FontWeight.w400, height: 1.35),
+            fontSize: 14, fontWeight: FontWeight.w400, height: 1.48),
         labelLarge: GoogleFonts.cairo(
-            fontSize: 15, fontWeight: FontWeight.w600, height: 1.25),
+            fontSize: 15, fontWeight: FontWeight.w600, height: 1.32),
         labelMedium: GoogleFonts.cairo(
-            fontSize: 13, fontWeight: FontWeight.w500, height: 1.25),
+            fontSize: 13, fontWeight: FontWeight.w500, height: 1.32),
         labelSmall: GoogleFonts.cairo(
-            fontSize: 12, fontWeight: FontWeight.w400, height: 1.25),
+            fontSize: 12, fontWeight: FontWeight.w400, height: 1.3),
       );
 
   static AppBarTheme get _appBarTheme => AppBarTheme(

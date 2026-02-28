@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 /// App typography — Cairo font (Arabic + Latin, RTL-aware)
-/// Line height 1.25x for Arabic text to prevent stroke overlap
+/// Keep readable vertical rhythm for Arabic/English/Chinese mixed UI.
 abstract final class AppTypography {
   // ─── Display ────────────────────────────────────────────────────
   /// Large score display (LQ number)
@@ -11,8 +11,8 @@ abstract final class AppTypography {
         fontSize: 56,
         fontWeight: FontWeight.w800,
         color: AppColors.gold,
-        height: 1.1,
-        letterSpacing: -1,
+        height: 1.12,
+        letterSpacing: -0.6,
       );
 
   /// Medium display (game score on result screen)
@@ -20,7 +20,7 @@ abstract final class AppTypography {
         fontSize: 40,
         fontWeight: FontWeight.w700,
         color: AppColors.textPrimary,
-        height: 1.2,
+        height: 1.18,
       );
 
   // ─── Heading ────────────────────────────────────────────────────
@@ -28,21 +28,21 @@ abstract final class AppTypography {
         fontSize: 26,
         fontWeight: FontWeight.w700,
         color: AppColors.textPrimary,
-        height: 1.3,
+        height: 1.34,
       );
 
   static TextStyle get headingMedium => GoogleFonts.cairo(
         fontSize: 22,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
-        height: 1.3,
+        height: 1.34,
       );
 
   static TextStyle get headingSmall => GoogleFonts.cairo(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
-        height: 1.3,
+        height: 1.34,
       );
 
   // ─── Body ────────────────────────────────────────────────────────
@@ -50,21 +50,21 @@ abstract final class AppTypography {
         fontSize: 17,
         fontWeight: FontWeight.w400,
         color: AppColors.textPrimary,
-        height: 1.35,
+        height: 1.5,
       );
 
   static TextStyle get bodyMedium => GoogleFonts.cairo(
         fontSize: 16,
         fontWeight: FontWeight.w400,
         color: AppColors.textPrimary,
-        height: 1.35,
+        height: 1.5,
       );
 
   static TextStyle get bodySmall => GoogleFonts.cairo(
         fontSize: 14,
         fontWeight: FontWeight.w400,
         color: AppColors.textSecondary,
-        height: 1.35,
+        height: 1.48,
       );
 
   // ─── Label / Caption ────────────────────────────────────────────
@@ -72,14 +72,14 @@ abstract final class AppTypography {
         fontSize: 15,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
-        height: 1.25,
+        height: 1.32,
       );
 
   static TextStyle get labelMedium => GoogleFonts.cairo(
         fontSize: 13,
         fontWeight: FontWeight.w500,
         color: AppColors.textSecondary,
-        height: 1.25,
+        height: 1.32,
       );
 
   /// Caption — minimum 12px for accessibility (WCAG)
@@ -87,7 +87,7 @@ abstract final class AppTypography {
         fontSize: 13,
         fontWeight: FontWeight.w400,
         color: AppColors.textDisabled,
-        height: 1.35,
+        height: 1.45,
       );
 
   // ─── Game-specific ───────────────────────────────────────────────
@@ -105,7 +105,7 @@ abstract final class AppTypography {
         fontWeight: FontWeight.w800,
         color: AppColors.gold,
         height: 1.0,
-        letterSpacing: 8,
+        letterSpacing: 4,
       );
 
   /// Timer display (Stopwatch, countdown)
@@ -114,7 +114,7 @@ abstract final class AppTypography {
         fontWeight: FontWeight.w700,
         color: AppColors.textPrimary,
         height: 1.0,
-        letterSpacing: 1,
+        letterSpacing: 0.5,
       );
 
   /// Color word in Stroop test

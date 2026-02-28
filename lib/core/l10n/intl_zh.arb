@@ -1,6 +1,6 @@
 {
   "@@locale": "zh",
-  "appName": "逻辑实验室",
+  "appName": "大脑健身房",
   "startTest": "开始测试",
   "playAgain": "再玩一次",
   "backToDashboard": "返回首页",
@@ -70,6 +70,8 @@
   "difficultyHard": "困难",
   "soundEnabled": "声音开",
   "soundDisabled": "声音关",
+  "saveImageSuccess": "已保存到相册",
+  "saveImageFailed": "保存图片失败",
   "hapticsEnabled": "震动开",
   "hapticsDisabled": "震动关",
   "languageLabel": "语言",

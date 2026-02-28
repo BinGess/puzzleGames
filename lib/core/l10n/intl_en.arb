@@ -1,7 +1,7 @@
 {
   "@@locale": "en",
 
-  "appName": "Logic Lab",
+  "appName": "BrainGym",
 
   "startTest": "Start Test",
   "playAgain": "Play Again",
@@ -91,6 +91,8 @@
 
   "soundEnabled": "Sound On",
   "soundDisabled": "Sound Off",
+  "saveImageSuccess": "Saved to gallery",
+  "saveImageFailed": "Failed to save image",
   "hapticsEnabled": "Haptics On",
   "hapticsDisabled": "Haptics Off",
   "languageLabel": "Language",

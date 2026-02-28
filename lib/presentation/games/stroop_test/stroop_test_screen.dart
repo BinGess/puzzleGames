@@ -66,6 +66,7 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      Haptics.setSoundGameId(GameType.stroopTest.id);
       GameRulesHelper.ensureShownOnce(context, GameType.stroopTest);
     });
   }
@@ -184,7 +185,8 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            icon:
+                const Icon(Icons.help_outline, color: AppColors.textSecondary),
             onPressed: () =>
                 GameRulesHelper.showRulesDialog(context, GameType.stroopTest),
           ),
@@ -215,7 +217,8 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              tr(context,
+              tr(
+                  context,
                   'اضغط الزر الذي يطابق لون الخط — لا معنى الكلمة!',
                   'Tap the button matching the font color — not the word meaning!',
                   '点击与字体颜色匹配的按钮，而非文字含义'),
@@ -251,8 +254,7 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
         LinearProgressIndicator(
           value: _current / _totalStimuli,
           backgroundColor: AppColors.border,
-          valueColor:
-              const AlwaysStoppedAnimation<Color>(AppColors.stroop),
+          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.stroop),
           minHeight: 2,
         ),
         Expanded(

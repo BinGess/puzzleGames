@@ -45,7 +45,6 @@ class LqHero extends StatelessWidget {
             tr(context, 'نظرة عامة', 'Overview', '概览'),
             style: AppTypography.caption.copyWith(
               color: AppColors.textSecondary,
-              letterSpacing: 1.0,
             ),
           ),
           const SizedBox(height: 6),
@@ -53,7 +52,6 @@ class LqHero extends StatelessWidget {
             tr(context, 'مقياس المنطق', 'Logic Quotient', '逻辑商数'),
             style: AppTypography.bodySmall.copyWith(
               color: AppColors.textSecondary,
-              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(height: 2),

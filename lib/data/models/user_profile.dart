@@ -11,13 +11,17 @@ class UserProfile extends HiveObject {
   @HiveField(1)
   final int? age;
 
-  /// Language preference: 'ar' | 'en'
+  /// Language preference: 'system' | 'ar' | 'en' | 'zh'
   @HiveField(2)
   final String languageCode;
 
   /// Sound effects enabled
   @HiveField(3)
   final bool soundEnabled;
+
+  /// Sound volume level: 0 = mute, 1 = low, 2 = medium, 3 = high
+  @HiveField(7)
+  final int soundVolumeLevel;
 
   /// Haptic feedback enabled
   @HiveField(4)
@@ -33,16 +37,18 @@ class UserProfile extends HiveObject {
   UserProfile({
     this.name,
     this.age,
-    this.languageCode = 'ar',
+    this.languageCode = 'system',
     this.soundEnabled = true,
+    this.soundVolumeLevel = 2,
     this.hapticsEnabled = true,
     this.fontScale = 1.12,
     required this.createdAt,
   });
 
   static UserProfile get defaults => UserProfile(
-        languageCode: 'ar',
+        languageCode: 'system',
         soundEnabled: true,
+        soundVolumeLevel: 2,
         hapticsEnabled: true,
         fontScale: 1.12,
         createdAt: DateTime.now(),
@@ -53,6 +59,7 @@ class UserProfile extends HiveObject {
     int? age,
     String? languageCode,
     bool? soundEnabled,
+    int? soundVolumeLevel,
     bool? hapticsEnabled,
     double? fontScale,
   }) =>
@@ -61,6 +68,7 @@ class UserProfile extends HiveObject {
         age: age ?? this.age,
         languageCode: languageCode ?? this.languageCode,
         soundEnabled: soundEnabled ?? this.soundEnabled,
+        soundVolumeLevel: soundVolumeLevel ?? this.soundVolumeLevel,
         hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
         fontScale: fontScale ?? this.fontScale,
         createdAt: createdAt,

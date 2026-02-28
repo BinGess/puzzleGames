@@ -20,8 +20,7 @@ class NumberMemoryScreen extends ConsumerStatefulWidget {
   const NumberMemoryScreen({super.key});
 
   @override
-  ConsumerState<NumberMemoryScreen> createState() =>
-      _NumberMemoryScreenState();
+  ConsumerState<NumberMemoryScreen> createState() => _NumberMemoryScreenState();
 }
 
 class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
@@ -44,6 +43,7 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      Haptics.setSoundGameId(GameType.numberMemory.id);
       GameRulesHelper.ensureShownOnce(context, GameType.numberMemory);
     });
   }
@@ -66,8 +66,8 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
 
   void _startRound() {
     // Generate random digit sequence
-    final digits = List.generate(
-        _currentLength, (_) => _rng.nextInt(10).toString());
+    final digits =
+        List.generate(_currentLength, (_) => _rng.nextInt(10).toString());
     _currentSequence = digits.join();
 
     // Show duration: 3s for 3 digits, +0.5s per additional digit
@@ -106,9 +106,9 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
   void _onSubmit() {
     if (_inputValue.length < _currentLength) return;
     final correct = _inputValue == _currentSequence;
-    Haptics.light();
 
     if (correct) {
+      Haptics.light();
       _maxReached = _currentLength;
       _currentLength = min(_currentLength + 1, _maxLength);
       setState(() {
@@ -182,7 +182,8 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            icon:
+                const Icon(Icons.help_outline, color: AppColors.textSecondary),
             onPressed: () =>
                 GameRulesHelper.showRulesDialog(context, GameType.numberMemory),
           ),
@@ -213,7 +214,8 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              tr(context,
+              tr(
+                  context,
                   'احفظ الأرقام ثم أدخلها بنفس الترتيب. يزيد الطول مع كل إجابة صحيحة.',
                   'Memorize the numbers then enter them in order. Length increases with each correct answer.',
                   '记住数字并按顺序输入。每答对一次长度增加。'),
@@ -251,18 +253,19 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
           ),
           const SizedBox(height: 32),
           Text(
-            tr(context, 'يختفي خلال $_countdown ث', 'Disappears in $_countdown''s',
-                '$_countdown秒后消失'),
+            tr(context, 'يختفي خلال $_countdown ث',
+                'Disappears in $_countdown' 's', '$_countdown秒后消失'),
             style: AppTypography.caption,
           ),
           const SizedBox(height: 24),
           SizedBox(
             width: 200,
             child: LinearProgressIndicator(
-              value: _countdown / (3 + max(0, (_currentLength - 3) * 0.5).ceil()),
+              value:
+                  _countdown / (3 + max(0, (_currentLength - 3) * 0.5).ceil()),
               backgroundColor: AppColors.border,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppColors.numberMemory),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(AppColors.numberMemory),
             ),
           ),
         ],
@@ -271,9 +274,8 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
   }
 
   Widget _buildInput(BuildContext context) {
-    final displayInput = useArabicDigits(context)
-        ? _inputValue.toArabicNumerals()
-        : _inputValue;
+    final displayInput =
+        useArabicDigits(context) ? _inputValue.toArabicNumerals() : _inputValue;
 
     return Column(
       children: [
@@ -288,12 +290,12 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
                 ),
                 const SizedBox(height: 24),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 32, vertical: 20),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
                   decoration: const BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(
-                          color: AppColors.numberMemory, width: 2),
+                      bottom:
+                          BorderSide(color: AppColors.numberMemory, width: 2),
                     ),
                   ),
                   child: Text(
@@ -302,7 +304,7 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
                       color: displayInput.isEmpty
                           ? AppColors.textDisabled
                           : AppColors.numberMemory,
-                      letterSpacing: 6,
+                      letterSpacing: 4,
                     ),
                     textDirection: TextDirection.ltr,
                   ),
@@ -318,9 +320,8 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 3),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: filled
-                            ? AppColors.numberMemory
-                            : AppColors.border,
+                        color:
+                            filled ? AppColors.numberMemory : AppColors.border,
                       ),
                     );
                   }),
@@ -394,35 +395,42 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
               children: List.generate(displayRows[r].length, (c) {
                 final label = displayRows[r][c];
                 final westernDigit = westRows[r][c];
+                final isDelete = label == '⌫';
                 if (label.isEmpty) return const Expanded(child: SizedBox());
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: GestureDetector(
                       onTap: () {
-                        if (label == '⌫') {
+                        if (isDelete) {
                           _onDelete();
                         } else {
                           _onDigitTap(westernDigit);
                         }
                       },
                       child: Container(
-                        height: 56,
+                        height: 62,
                         decoration: BoxDecoration(
                           color: AppColors.surfaceElevated,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: AppColors.border, width: 0.5),
+                          border:
+                              Border.all(color: AppColors.border, width: 0.5),
                         ),
                         child: Center(
-                          child: Text(
-                            label,
-                            style: AppTypography.headingSmall.copyWith(
-                              color: label == '⌫'
-                                  ? AppColors.textSecondary
-                                  : AppColors.textPrimary,
-                            ),
-                          ),
+                          child: isDelete
+                              ? const Icon(
+                                  Icons.backspace_rounded,
+                                  size: 30,
+                                  color: AppColors.textSecondary,
+                                )
+                              : Text(
+                                  label,
+                                  style: AppTypography.headingSmall.copyWith(
+                                    fontSize: 28,
+                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                         ),
                       ),
                     ),
@@ -438,7 +446,8 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _inputValue.length == _currentLength ? _onSubmit : null,
+              onPressed:
+                  _inputValue.length == _currentLength ? _onSubmit : null,
               child: Text(tr(context, 'تأكيد', 'Submit', '确认')),
             ),
           ),

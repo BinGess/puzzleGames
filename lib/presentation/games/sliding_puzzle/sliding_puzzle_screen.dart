@@ -39,6 +39,7 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      Haptics.setSoundGameId(GameType.slidingPuzzle.id);
       GameRulesHelper.ensureShownOnce(context, GameType.slidingPuzzle);
     });
   }
@@ -51,7 +52,7 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
   }
 
   void _startGame() {
-    final tiles = _generateSolvable(_gridSize);
+    final tiles = _generateSolvable(_gridSize, _shuffleMoves(_gridSize));
     setState(() {
       _tiles = tiles;
       _moves = 0;
@@ -73,21 +74,34 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
   }
 
   /// Generate a solvable puzzle by making random legal moves from solved state
-  List<int> _generateSolvable(int size) {
+  List<int> _generateSolvable(int size, int shuffleMoves) {
     final total = size * size;
     // Start with solved state
     List<int> tiles = List.generate(total, (i) => (i + 1) % total);
-    // Make 200 random moves from solved
+    // Make random legal moves from solved to guarantee solvability
     int emptyIdx = tiles.indexOf(0);
-    for (int i = 0; i < 200; i++) {
+    for (int i = 0; i < shuffleMoves; i++) {
       final neighbors = _neighbors(emptyIdx, size);
       final neighbor = neighbors[_rng.nextInt(neighbors.length)];
       tiles[emptyIdx] = tiles[neighbor];
       tiles[neighbor] = 0;
       emptyIdx = neighbor;
     }
+    // Avoid edge case: still solved after random walk.
+    if (_isSolvedTiles(tiles, size)) {
+      final neighbors = _neighbors(emptyIdx, size);
+      final neighbor = neighbors[_rng.nextInt(neighbors.length)];
+      tiles[emptyIdx] = tiles[neighbor];
+      tiles[neighbor] = 0;
+    }
     return tiles;
   }
+
+  int _shuffleMoves(int size) => switch (size) {
+        3 => 70,
+        4 => 170,
+        _ => 300,
+      };
 
   List<int> _neighbors(int idx, int size) {
     final row = idx ~/ size;
@@ -124,6 +138,30 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
       if (_tiles[i] != i + 1) return false;
     }
     return _tiles[total - 1] == 0;
+  }
+
+  bool _isSolvedTiles(List<int> tiles, int size) {
+    final total = size * size;
+    for (int i = 0; i < total - 1; i++) {
+      if (tiles[i] != i + 1) return false;
+    }
+    return tiles[total - 1] == 0;
+  }
+
+  String _difficultyLabel(BuildContext context, int size) {
+    return switch (size) {
+      3 => tr(context, 'عادي', 'Normal', '普通'),
+      4 => tr(context, 'صعب', 'Hard', '高难度'),
+      _ => tr(context, 'تحدي', 'Challenge', '挑战'),
+    };
+  }
+
+  String _difficultyHint(BuildContext context, int size) {
+    return switch (size) {
+      3 => tr(context, 'مناسب للبداية', 'Warm-up', '入门热身'),
+      4 => tr(context, 'يتطلب تخطيطًا', 'Need planning', '需要规划'),
+      _ => tr(context, 'نمط متقدم', 'Expert mode', '高手模式'),
+    };
   }
 
   Future<void> _finishGame() async {
@@ -197,9 +235,10 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
-            onPressed: () =>
-                GameRulesHelper.showRulesDialog(context, GameType.slidingPuzzle),
+            icon:
+                const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () => GameRulesHelper.showRulesDialog(
+                context, GameType.slidingPuzzle),
           ),
         ],
       ),
@@ -214,41 +253,34 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.extension, color: AppColors.slidingPuzzle, size: 64),
-            const SizedBox(height: 24),
-            Text(
-              tr(context, 'لغز الأرقام', 'Sliding Puzzle', '数字华容道'),
-              style: AppTypography.headingMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              tr(context,
-                  'رتّب الأرقام بالترتيب الصحيح بأقل عدد من الحركات',
-                  'Arrange the numbers in order with the fewest moves',
-                  '用最少步数将数字按顺序排列'),
-              style: AppTypography.bodyMedium
-                  .copyWith(color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 12,
+              children: <Widget>[
                 _SizePill(
                   label: tr(context, '٣×٣', '3×3', '3×3'),
-                  sublabel: tr(context, 'سهل', 'Easy', '简单'),
+                  sublabel:
+                      '${_difficultyLabel(context, 3)} · ${_difficultyHint(context, 3)}',
                   selected: _gridSize == 3,
                   color: AppColors.slidingPuzzle,
                   onTap: () => setState(() => _gridSize = 3),
                 ),
-                const SizedBox(width: 12),
                 _SizePill(
                   label: tr(context, '٤×٤', '4×4', '4×4'),
-                  sublabel: tr(context, 'صعب', 'Hard', '困难'),
+                  sublabel:
+                      '${_difficultyLabel(context, 4)} · ${_difficultyHint(context, 4)}',
                   selected: _gridSize == 4,
                   color: AppColors.slidingPuzzle,
                   onTap: () => setState(() => _gridSize = 4),
+                ),
+                _SizePill(
+                  label: tr(context, '٥×٥', '5×5', '5×5'),
+                  sublabel:
+                      '${_difficultyLabel(context, 5)} · ${_difficultyHint(context, 5)}',
+                  selected: _gridSize == 5,
+                  color: AppColors.slidingPuzzle,
+                  onTap: () => setState(() => _gridSize = 5),
                 ),
               ],
             ),
@@ -268,65 +300,86 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
 
   Widget _buildPuzzle(BuildContext context) {
     final total = _gridSize * _gridSize;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: AspectRatio(
-          aspectRatio: 1,
-          child: GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: _gridSize,
-              crossAxisSpacing: 6,
-              mainAxisSpacing: 6,
+    final tileFontSize = switch (_gridSize) {
+      3 => 32.0,
+      4 => 26.0,
+      _ => 20.0,
+    };
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+      child: Column(
+        children: [
+          Text(
+            '${tr(context, 'الصعوبة: ', 'Difficulty: ', '难度：')}${_difficultyLabel(context, _gridSize)} · ${tr(context, 'الهدف: ترتيب تصاعدي والخانة الأخيرة فارغة', 'Goal: ascending order, last cell empty', '目标：升序排列，最后一格留空')}',
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
             ),
-            itemCount: total,
-            itemBuilder: (ctx, i) {
-              final num = _tiles[i];
-              final isEmpty = num == 0;
-
-              return GestureDetector(
-                onTap: isEmpty ? null : () => _onTileTap(i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 120),
-                  decoration: BoxDecoration(
-                    gradient: isEmpty
-                        ? null
-                        : const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppColors.surfaceElevated,
-                              AppColors.surface,
-                            ],
-                          ),
-                    color: isEmpty ? Colors.transparent : null,
-                    borderRadius: BorderRadius.circular(10),
-                    border: isEmpty
-                        ? null
-                        : Border.all(
-                            color: AppColors.slidingPuzzle
-                                .withValues(alpha: 0.3),
-                            width: 1),
-                  ),
-                  child: isEmpty
-                      ? null
-                      : Center(
-                          child: Text(
-                            useArabicDigits(context)
-                                ? num.toArabicDigits()
-                                : '$num',
-                            style: AppTypography.headingSmall.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                ),
-              );
-            },
+            textAlign: TextAlign.center,
           ),
-        ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: _gridSize,
+                    crossAxisSpacing: 6,
+                    mainAxisSpacing: 6,
+                  ),
+                  itemCount: total,
+                  itemBuilder: (ctx, i) {
+                    final num = _tiles[i];
+                    final isEmpty = num == 0;
+
+                    return GestureDetector(
+                      onTap: isEmpty ? null : () => _onTileTap(i),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 120),
+                        decoration: BoxDecoration(
+                          gradient: isEmpty
+                              ? null
+                              : const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    AppColors.surfaceElevated,
+                                    AppColors.surface,
+                                  ],
+                                ),
+                          color: isEmpty ? Colors.transparent : null,
+                          borderRadius: BorderRadius.circular(10),
+                          border: isEmpty
+                              ? null
+                              : Border.all(
+                                  color: AppColors.slidingPuzzle
+                                      .withValues(alpha: 0.3),
+                                  width: 1,
+                                ),
+                        ),
+                        child: isEmpty
+                            ? null
+                            : Center(
+                                child: Text(
+                                  useArabicDigits(context)
+                                      ? num.toArabicDigits()
+                                      : '$num',
+                                  style: AppTypography.headingSmall.copyWith(
+                                    fontSize: tileFontSize,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -356,8 +409,8 @@ class _SizePill extends StatelessWidget {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        width: 132,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: selected
               ? color.withValues(alpha: 0.15)
@@ -372,11 +425,13 @@ class _SizePill extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(label,
-                style: AppTypography.headingSmall.copyWith(
-                    color: selected ? color : AppColors.textPrimary)),
+                style: AppTypography.headingSmall
+                    .copyWith(color: selected ? color : AppColors.textPrimary)),
             Text(sublabel,
                 style: AppTypography.caption.copyWith(
-                    color: selected ? color : AppColors.textSecondary)),
+                    color: selected ? color : AppColors.textSecondary),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
           ],
         ),
       ),

@@ -20,6 +20,10 @@ class ProfileRepository {
     await saveProfile(profile.copyWith(soundEnabled: enabled));
   }
 
+  Future<void> updateSoundVolumeLevel(int level) async {
+    await saveProfile(profile.copyWith(soundVolumeLevel: level.clamp(0, 3)));
+  }
+
   Future<void> updateHaptics(bool enabled) async {
     await saveProfile(profile.copyWith(hapticsEnabled: enabled));
   }

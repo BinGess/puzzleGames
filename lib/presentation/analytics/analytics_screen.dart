@@ -67,7 +67,8 @@ class AnalyticsScreen extends ConsumerWidget {
           const SizedBox(height: 20),
 
           // ─── Per-game stats ─────────────────────────────────────────
-          _sectionLabel(tr(context, 'إحصائيات الألعاب', 'Game Statistics', '游戏统计')),
+          _sectionLabel(
+              tr(context, 'إحصائيات الألعاب', 'Game Statistics', '游戏统计')),
           const SizedBox(height: 10),
           _buildGames(context, gameStats),
           const SizedBox(height: 40),
@@ -76,8 +77,7 @@ class AnalyticsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _sectionLabel(String text) =>
-      Text(text, style: AppTypography.caption);
+  Widget _sectionLabel(String text) => Text(text, style: AppTypography.caption);
 
   // ─── LQ History Line Chart ──────────────────────────────────────────────
   Widget _buildChart(List<AbilitySnapshot> history) {
@@ -135,7 +135,7 @@ class AnalyticsScreen extends ConsumerWidget {
                 reservedSize: 32,
                 getTitlesWidget: (value, _) => Text(
                   value.toInt().toString(),
-                  style: AppTypography.caption.copyWith(fontSize: 10),
+                  style: AppTypography.caption.copyWith(fontSize: 11),
                 ),
               ),
             ),
@@ -272,9 +272,7 @@ class _GameCard extends StatelessWidget {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: hasPlayed
-              ? color.withValues(alpha: 0.3)
-              : AppColors.border,
+          color: hasPlayed ? color.withValues(alpha: 0.3) : AppColors.border,
           width: 0.5,
         ),
       ),
@@ -317,7 +315,7 @@ class _GameCard extends StatelessWidget {
                 children: [
                   Text(
                     tr(context, 'الأفضل', 'Best', '最佳'),
-                    style: AppTypography.caption.copyWith(fontSize: 9),
+                    style: AppTypography.caption.copyWith(fontSize: 11),
                   ),
                   Text(
                     bestStr,
@@ -332,7 +330,7 @@ class _GameCard extends StatelessWidget {
                 children: [
                   Text(
                     tr(context, 'جلسات', 'Plays', '局'),
-                    style: AppTypography.caption.copyWith(fontSize: 9),
+                    style: AppTypography.caption.copyWith(fontSize: 11),
                   ),
                   Text(
                     '$plays',

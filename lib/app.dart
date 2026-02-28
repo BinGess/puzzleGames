@@ -4,6 +4,7 @@ import 'core/constants/app_font_scale.dart';
 import 'core/l10n/app_localizations.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
+import 'core/utils/app_locale_resolver.dart';
 import 'presentation/providers/app_providers.dart';
 
 class LogicLabApp extends ConsumerWidget {
@@ -12,10 +13,10 @@ class LogicLabApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
-    final languageCode = profile.languageCode;
+    final languageCode = AppLocaleResolver.resolve(profile.languageCode);
 
     return MaterialApp.router(
-      title: 'مختبر المنطق',
+      onGenerateTitle: (context) => AppL10n.of(context).appName,
       debugShowCheckedModeBanner: false,
 
       // ─── Theme ────────────────────────────────────────────────────

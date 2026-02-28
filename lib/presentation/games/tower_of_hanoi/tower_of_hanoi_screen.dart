@@ -26,11 +26,11 @@ Color _diskColor(int size) =>
     _kDiskColors[(size - 1).clamp(0, _kDiskColors.length - 1)];
 
 // ─── Layout constants ─────────────────────────────────────────────────────────
-const _kDiscHeight = 30.0;
-const _kDiscGap = 4.0;
-const _kPoleWidth = 9.0;
-const _kBaseHeight = 14.0;
-const _kFloatOffset = 28.0;
+const _kDiscHeight = 36.0;
+const _kDiscGap = 6.0;
+const _kPoleWidth = 14.0;
+const _kBaseHeight = 18.0;
+const _kFloatOffset = 34.0;
 const _kMoveDuration = Duration(milliseconds: 200);
 const _kAnimDuration = Duration(milliseconds: 190);
 
@@ -40,8 +40,7 @@ class TowerOfHanoiScreen extends ConsumerStatefulWidget {
   const TowerOfHanoiScreen({super.key});
 
   @override
-  ConsumerState<TowerOfHanoiScreen> createState() =>
-      _TowerOfHanoiScreenState();
+  ConsumerState<TowerOfHanoiScreen> createState() => _TowerOfHanoiScreenState();
 }
 
 class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
@@ -66,6 +65,7 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      Haptics.setSoundGameId(GameType.towerOfHanoi.id);
       GameRulesHelper.ensureShownOnce(context, GameType.towerOfHanoi);
     });
 
@@ -131,6 +131,7 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
         // Invalid: can't place larger on smaller
         Haptics.medium();
         _shake(peg);
+        _showInvalidMoveToast();
         setState(() => _selectedPeg = null);
         return;
       }
@@ -144,6 +145,30 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
     _shakeCtrl.forward(from: 0).then((_) {
       if (mounted) setState(() => _shakePeg = -1);
     });
+  }
+
+  void _showInvalidMoveToast() {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        duration: const Duration(milliseconds: 1400),
+        backgroundColor: const Color(0xFF2B1D1D),
+        content: Text(
+          tr(
+            context,
+            'لا يمكن وضع قرص أكبر فوق قرص أصغر',
+            'You can only place it on a bigger disk',
+            '只能放在比它更大的盘子上',
+          ),
+          style:
+              AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary),
+        ),
+      ),
+    );
   }
 
   Future<void> _doMove(int src, int dst) async {
@@ -196,6 +221,28 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
     });
   }
 
+  String _difficultyLabel(BuildContext context, int diskCount) {
+    return switch (diskCount) {
+      3 => tr(context, 'عادي', 'Normal', '普通'),
+      4 => tr(context, 'صعب', 'Hard', '高难度'),
+      _ => tr(context, 'تحدي', 'Challenge', '挑战'),
+    };
+  }
+
+  String _difficultyDetail(BuildContext context, int diskCount) {
+    final count = useArabicDigits(context)
+        ? diskCount.toArabicDigits()
+        : diskCount.toString();
+    return switch (diskCount) {
+      3 => tr(context, '$count أقراص · مناسب للبداية',
+          '$count discs · beginner friendly', '$count 盘 · 适合入门'),
+      4 => tr(context, '$count أقراص · يتطلب تخطيطًا',
+          '$count discs · needs planning', '$count 盘 · 需要规划'),
+      _ => tr(context, '$count أقراص · اختبار كامل',
+          '$count discs · full challenge', '$count 盘 · 进阶挑战'),
+    };
+  }
+
   // ─── Build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -238,7 +285,6 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
   // ─── Config screen ──────────────────────────────────────────────────────────
 
   Widget _buildConfig(BuildContext context) {
-    final optimal = (1 << _diskCount) - 1;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
@@ -275,7 +321,7 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
             ),
             const SizedBox(height: 32),
 
-            // Disc count selector
+            // Difficulty selector
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [3, 4, 5].map((n) {
@@ -289,16 +335,18 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 220),
-                      width: 80,
-                      height: 72,
+                      width: 106,
+                      height: 84,
                       decoration: BoxDecoration(
                         gradient: sel
                             ? LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                                 colors: [
-                                  AppColors.towerOfHanoi.withValues(alpha: 0.28),
-                                  AppColors.towerOfHanoi.withValues(alpha: 0.10),
+                                  AppColors.towerOfHanoi
+                                      .withValues(alpha: 0.28),
+                                  AppColors.towerOfHanoi
+                                      .withValues(alpha: 0.10),
                                 ],
                               )
                             : const LinearGradient(
@@ -309,9 +357,8 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
                               ),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: sel
-                              ? AppColors.towerOfHanoi
-                              : AppColors.border,
+                          color:
+                              sel ? AppColors.towerOfHanoi : AppColors.border,
                           width: sel ? 1.5 : 0.5,
                         ),
                         boxShadow: sel
@@ -328,20 +375,24 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            useArabicDigits(context) ? n.toArabicDigits() : '$n',
-                            style: AppTypography.headingMedium.copyWith(
+                            _difficultyLabel(context, n),
+                            style: AppTypography.labelLarge.copyWith(
                               color: sel
                                   ? AppColors.towerOfHanoi
                                   : AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
+                          const SizedBox(height: 4),
                           Text(
-                            tr(context, 'أقراص', 'discs', '盘'),
+                            _difficultyDetail(context, n),
                             style: AppTypography.caption.copyWith(
                               color: sel
                                   ? AppColors.towerOfHanoi
                                   : AppColors.textSecondary,
+                              fontSize: 11,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
@@ -349,15 +400,6 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
                   ),
                 );
               }).toList(),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              useArabicDigits(context)
-                  ? 'الحد الأدنى: ${optimal.toArabicDigits()} حركة'
-                  : '${tr(context, 'الحد الأدنى: ', 'Optimal: ', '最少：')}$optimal ${tr(context, 'حركة', 'moves', '步')}',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.towerOfHanoi.withValues(alpha: 0.72),
-              ),
             ),
             const SizedBox(height: 40),
             SizedBox(
@@ -376,7 +418,6 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
   // ─── Game screen ────────────────────────────────────────────────────────────
 
   Widget _buildGame(BuildContext context) {
-    final optimal = (1 << _diskCount) - 1;
     return Column(
       children: [
         // Sub-header
@@ -386,9 +427,7 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                useArabicDigits(context)
-                    ? 'الأمثل: ${optimal.toArabicDigits()} حركة'
-                    : '${tr(context, 'الأمثل: ', 'Optimal: ', '最少：')}$optimal ${tr(context, 'حركة', 'moves', '步')}',
+                '${tr(context, 'الصعوبة: ', 'Difficulty: ', '难度：')}${_difficultyLabel(context, _diskCount)}',
                 style: AppTypography.caption.copyWith(
                   color: AppColors.towerOfHanoi.withValues(alpha: 0.65),
                 ),
@@ -416,7 +455,7 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
         // Board
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
             child: _HanoiBoard(
               pegs: _pegs,
               diskCount: _diskCount,
@@ -457,20 +496,21 @@ class _HanoiBoard extends StatelessWidget {
       final totalW = cs.maxWidth;
       final totalH = cs.maxHeight;
       final pegColW = totalW / 3;
-      // Max disc width within a column, leaving 12px padding each side
-      final maxDiscW = pegColW - 24.0;
-      const minDiscW = 36.0;
+      const boardLift = 24.0;
+      // Max disc width within a column, leaving a little side breathing room
+      final maxDiscW = pegColW - 12.0;
+      const minDiscW = 54.0;
       // Pole height covers all discs + some breathing room above
       final poleH = min(
-        diskCount * (_kDiscHeight + _kDiscGap) + 44.0,
-        totalH - _kBaseHeight - 40.0,
+        diskCount * (_kDiscHeight + _kDiscGap) + 58.0,
+        totalH - _kBaseHeight - boardLift - 16.0,
       );
 
       return Stack(
         children: [
           // ── Base platform ─────────────────────────────────────────────
           Positioned(
-            bottom: 0,
+            bottom: boardLift,
             left: 0,
             right: 0,
             child: Container(
@@ -530,7 +570,7 @@ class _HanoiBoard extends StatelessWidget {
               left: i * pegColW,
               top: 0,
               width: pegColW,
-              bottom: _kBaseHeight,
+              bottom: _kBaseHeight + boardLift,
               child: peg,
             );
           }),
@@ -621,12 +661,10 @@ class _PegColumn extends StatelessWidget {
                               // Goal label
                               ? _TextChip(
                                   key: const ValueKey('goal'),
-                                  label:
-                                      tr(context, 'هدف', 'GOAL', '目标'),
+                                  label: tr(context, 'هدف', 'GOAL', '目标'),
                                   color: accentColor,
                                 )
-                              : const SizedBox.shrink(
-                                  key: ValueKey('empty')),
+                              : const SizedBox.shrink(key: ValueKey('empty')),
                 ),
               ),
             ),
@@ -685,8 +723,9 @@ class _PegColumn extends StatelessWidget {
 
               final dw = _discW(size);
               final baseBottom = stackIdx * (_kDiscHeight + _kDiscGap);
-              final bottom =
-                  isFloating ? baseBottom + _kFloatOffset : baseBottom.toDouble();
+              final bottom = isFloating
+                  ? baseBottom + _kFloatOffset
+                  : baseBottom.toDouble();
 
               return AnimatedPositioned(
                 key: ValueKey('p${pegIndex}_d$size'),
@@ -742,9 +781,7 @@ class _DiscWidget extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isFloating
-              ? AppColors.gold
-              : color.withValues(alpha: 0.60),
+          color: isFloating ? AppColors.gold : color.withValues(alpha: 0.60),
           width: isFloating ? 1.5 : 0.5,
         ),
         boxShadow: isFloating
@@ -820,9 +857,8 @@ class _TextChip extends StatelessWidget {
         label,
         style: AppTypography.caption.copyWith(
           color: color,
-          fontSize: 9,
+          fontSize: 11,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
         ),
       ),
     );
@@ -921,9 +957,8 @@ class _MiniTowerPreview extends StatelessWidget {
           ...List.generate(diskCount, (i) {
             // i=0 → bottom/largest, i=diskCount-1 → top/smallest
             final size = diskCount - i; // size: N down to 1
-            final t = diskCount <= 1
-                ? 1.0
-                : (size - 1) / (diskCount - 1).toDouble();
+            final t =
+                diskCount <= 1 ? 1.0 : (size - 1) / (diskCount - 1).toDouble();
             final dw = minW + t * (maxW - minW);
             final color = _diskColor(size);
             final bottom = 8.0 + baseH + i * (discH + discGap);

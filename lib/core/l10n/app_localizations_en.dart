@@ -9,7 +9,7 @@ class AppL10nEn extends AppL10n {
   AppL10nEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appName => 'Logic Lab';
+  String get appName => 'BrainGym';
 
   @override
   String get startTest => 'Start Test';
@@ -225,6 +225,12 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get soundDisabled => 'Sound Off';
+
+  @override
+  String get saveImageSuccess => 'Saved to gallery';
+
+  @override
+  String get saveImageFailed => 'Failed to save image';
 
   @override
   String get hapticsEnabled => 'Haptics On';

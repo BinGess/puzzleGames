@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_font_scale.dart';
 import '../../core/constants/app_typography.dart';
+import '../../core/utils/app_locale_resolver.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/repositories/score_repository.dart';
 import '../../data/repositories/analytics_repository.dart';
@@ -25,7 +26,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
-    final lang = profile.languageCode;
+    final lang = AppLocaleResolver.resolve(profile.languageCode);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -53,10 +54,15 @@ class SettingsScreen extends ConsumerWidget {
                 : _t('الصوت معطّل', 'Sound Off', '声音关', lang),
             value: profile.soundEnabled,
             onChanged: (v) {
-              Haptics.selection();
               ref.read(profileProvider.notifier).setSound(v);
+              if (v) {
+                Future.delayed(
+                    const Duration(milliseconds: 40), Haptics.selection);
+              }
             },
           ),
+          _soundLevelTile(context, ref, lang, profile.soundEnabled,
+              profile.soundVolumeLevel),
           _toggleTile(
             icon: profile.hapticsEnabled
                 ? Icons.vibration_rounded
@@ -79,14 +85,14 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.language_rounded,
             iconColor: AppColors.reaction,
             title: _t('اللغة', 'Language', '语言', lang),
-            value: profile.languageCode == 'ar'
+            value: lang == 'ar'
                 ? _t('العربية', 'Arabic', '阿拉伯语', lang)
-                : profile.languageCode == 'zh'
+                : lang == 'zh'
                     ? _t('中文', 'Chinese', '中文', lang)
                     : _t('الإنجليزية', 'English', '英语', lang),
             onTap: () {
               Haptics.selection();
-              _showLanguagePicker(context, ref, lang, profile.languageCode);
+              _showLanguagePicker(context, ref, lang, lang);
             },
           ),
 
@@ -164,6 +170,89 @@ class SettingsScreen extends ConsumerWidget {
         activeTrackColor: AppColors.goldVeryMuted,
         inactiveThumbColor: AppColors.textDisabled,
         inactiveTrackColor: AppColors.surfaceElevated,
+      ),
+    );
+  }
+
+  Widget _soundLevelTile(
+    BuildContext context,
+    WidgetRef ref,
+    String lang,
+    bool soundEnabled,
+    int rawLevel,
+  ) {
+    final currentLevel = soundEnabled ? rawLevel.clamp(1, 3).toInt() : 0;
+    final options = [
+      (0, _t('صامت', 'Mute', '静音', lang)),
+      (1, _t('منخفض', 'Low', '低', lang)),
+      (2, _t('متوسط', 'Medium', '中', lang)),
+      (3, _t('عالٍ', 'High', '高', lang)),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+      child: Row(
+        children: [
+          _iconBox(Icons.graphic_eq_rounded, AppColors.gold),
+          const SizedBox(width: 16),
+          Text(
+            _t('مستوى الصوت', 'Volume Level', '音量等级', lang),
+            style: AppTypography.bodyMedium,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: options.map((opt) {
+                final selected = currentLevel == opt.$1;
+                return GestureDetector(
+                  onTap: () {
+                    if (opt.$1 == 0) {
+                      Haptics.selection();
+                      ref.read(profileProvider.notifier).setSoundProfile(
+                            enabled: false,
+                            volumeLevel: 0,
+                          );
+                    } else {
+                      ref.read(profileProvider.notifier).setSoundProfile(
+                            enabled: true,
+                            volumeLevel: opt.$1,
+                          );
+                      Future.delayed(
+                          const Duration(milliseconds: 40), Haptics.selection);
+                    }
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? AppColors.gold.withValues(alpha: 0.16)
+                          : AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(
+                        color: selected ? AppColors.gold : AppColors.border,
+                        width: selected ? 1.4 : 0.7,
+                      ),
+                    ),
+                    child: Text(
+                      opt.$2,
+                      style: AppTypography.caption.copyWith(
+                        color:
+                            selected ? AppColors.gold : AppColors.textSecondary,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
       ),
     );
   }
