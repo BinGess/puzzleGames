@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_font_scale.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/repositories/score_repository.dart';
@@ -40,7 +41,8 @@ class SettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           // ─── Sound & Haptics ──────────────────────────────────────
-          _sectionHeader(_t('الصوت والاهتزاز', 'Sound & Haptics', '声音与震动', lang)),
+          _sectionHeader(
+              _t('الصوت والاهتزاز', 'Sound & Haptics', '声音与震动', lang)),
           _toggleTile(
             icon: profile.soundEnabled
                 ? Icons.volume_up_rounded
@@ -102,11 +104,8 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.delete_outline_rounded,
             iconColor: AppColors.error,
             title: _t('إعادة تعيين البيانات', 'Reset All Data', '重置所有数据', lang),
-            subtitle: _t(
-                'حذف جميع النتائج والسجلات',
-                'Delete all scores and records',
-                '删除所有分数和记录',
-                lang),
+            subtitle: _t('حذف جميع النتائج والسجلات',
+                'Delete all scores and records', '删除所有分数和记录', lang),
             onTap: () => _confirmReset(context, ref, lang),
           ),
 
@@ -124,11 +123,8 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.lock_outline_rounded,
             iconColor: AppColors.textSecondary,
             title: _t('الخصوصية', 'Privacy', '隐私', lang),
-            value: _t(
-                'جميع البيانات على جهازك فقط',
-                'All data stored locally only',
-                '所有数据仅保存在您的设备上',
-                lang),
+            value: _t('جميع البيانات على جهازك فقط',
+                'All data stored locally only', '所有数据仅保存在您的设备上', lang),
           ),
 
           const SizedBox(height: 40),
@@ -140,7 +136,13 @@ class SettingsScreen extends ConsumerWidget {
   Widget _sectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-      child: Text(title, style: AppTypography.caption),
+      child: Text(
+        title,
+        style: AppTypography.labelMedium.copyWith(
+          color: AppColors.textDisabled,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 
@@ -223,10 +225,11 @@ class SettingsScreen extends ConsumerWidget {
 
   Widget _fontSizeTile(
       BuildContext context, WidgetRef ref, String lang, double currentScale) {
+    final effectiveScale = AppFontScale.normalize(currentScale);
     final options = [
-      (0.85, _t('صغير', 'Small', '小', lang)),
-      (1.0, _t('متوسط', 'Medium', '中', lang)),
-      (1.15, _t('كبير', 'Large', '大', lang)),
+      (AppFontScale.small, _t('صغير', 'Small', '小', lang)),
+      (AppFontScale.medium, _t('متوسط', 'Medium', '中', lang)),
+      (AppFontScale.large, _t('كبير', 'Large', '大', lang)),
     ];
 
     return Padding(
@@ -236,39 +239,38 @@ class SettingsScreen extends ConsumerWidget {
           _iconBox(Icons.text_fields_rounded, AppColors.numberMemory),
           const SizedBox(width: 16),
           Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
               children: options.map((opt) {
-                final selected = (opt.$1 - currentScale).abs() < 0.01;
-                return Padding(
-                  padding: const EdgeInsetsDirectional.only(start: 8),
-                  child: GestureDetector(
-                    onTap: () {
-                      Haptics.selection();
-                      ref
-                          .read(profileProvider.notifier)
-                          .setFontScale(opt.$1);
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? AppColors.gold.withValues(alpha: 0.15)
-                            : AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: selected ? AppColors.gold : AppColors.border,
-                          width: selected ? 1.5 : 0.5,
-                        ),
+                final selected = (opt.$1 - effectiveScale).abs() < 0.01;
+                return GestureDetector(
+                  onTap: () {
+                    Haptics.selection();
+                    ref.read(profileProvider.notifier).setFontScale(opt.$1);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? AppColors.gold.withValues(alpha: 0.16)
+                          : AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: selected ? AppColors.gold : AppColors.border,
+                        width: selected ? 1.5 : 0.7,
                       ),
-                      child: Text(
-                        opt.$2,
-                        style: AppTypography.labelMedium.copyWith(
-                          color:
-                              selected ? AppColors.gold : AppColors.textSecondary,
-                        ),
+                    ),
+                    child: Text(
+                      opt.$2,
+                      style: AppTypography.labelLarge.copyWith(
+                        color:
+                            selected ? AppColors.gold : AppColors.textSecondary,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w600,
                       ),
                     ),
                   ),
@@ -304,8 +306,8 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               ListTile(
                 title: Text('العربية',
-                    style: AppTypography.bodyMedium
-                        .copyWith(color: current == 'ar' ? AppColors.gold : null)),
+                    style: AppTypography.bodyMedium.copyWith(
+                        color: current == 'ar' ? AppColors.gold : null)),
                 trailing: current == 'ar'
                     ? const Icon(Icons.check_rounded, color: AppColors.gold)
                     : null,
@@ -317,8 +319,8 @@ class SettingsScreen extends ConsumerWidget {
               ),
               ListTile(
                 title: Text('English',
-                    style: AppTypography.bodyMedium
-                        .copyWith(color: current == 'en' ? AppColors.gold : null)),
+                    style: AppTypography.bodyMedium.copyWith(
+                        color: current == 'en' ? AppColors.gold : null)),
                 trailing: current == 'en'
                     ? const Icon(Icons.check_rounded, color: AppColors.gold)
                     : null,
@@ -330,8 +332,8 @@ class SettingsScreen extends ConsumerWidget {
               ),
               ListTile(
                 title: Text('中文',
-                    style: AppTypography.bodyMedium
-                        .copyWith(color: current == 'zh' ? AppColors.gold : null)),
+                    style: AppTypography.bodyMedium.copyWith(
+                        color: current == 'zh' ? AppColors.gold : null)),
                 trailing: current == 'zh'
                     ? const Icon(Icons.check_rounded, color: AppColors.gold)
                     : null,

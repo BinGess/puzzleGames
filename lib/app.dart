@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/constants/app_font_scale.dart';
 import 'core/l10n/app_localizations.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
@@ -36,11 +37,10 @@ class LogicLabApp extends ConsumerWidget {
 
       // ─── Builder: enforce RTL + font scale ────────────────────────
       builder: (context, child) {
-        final fontScale = profile.fontScale;
+        final fontScale = AppFontScale.normalize(profile.fontScale);
         return Directionality(
-          textDirection: languageCode == 'ar'
-              ? TextDirection.rtl
-              : TextDirection.ltr,
+          textDirection:
+              languageCode == 'ar' ? TextDirection.rtl : TextDirection.ltr,
           child: MediaQuery(
             data: MediaQuery.of(context).copyWith(
               textScaler: TextScaler.linear(fontScale),

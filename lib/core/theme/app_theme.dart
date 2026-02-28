@@ -35,23 +35,24 @@ abstract final class AppTheme {
             borderRadius: BorderRadius.circular(20),
           ),
           titleTextStyle: GoogleFonts.cairo(
-            fontSize: 18,
+            fontSize: 20,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
           ),
           contentTextStyle: GoogleFonts.cairo(
-            fontSize: 14,
+            fontSize: 16,
             color: AppColors.textSecondary,
-            height: 1.4,
+            height: 1.5,
           ),
         ),
         snackBarTheme: SnackBarThemeData(
           backgroundColor: AppColors.surfaceOverlay,
           contentTextStyle: GoogleFonts.cairo(
-            fontSize: 14,
+            fontSize: 15,
             color: AppColors.textPrimary,
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           behavior: SnackBarBehavior.floating,
         ),
         pageTransitionsTheme: const PageTransitionsTheme(
@@ -78,21 +79,36 @@ abstract final class AppTheme {
       );
 
   static TextTheme get _textTheme => TextTheme(
-        displayLarge: GoogleFonts.cairo(fontSize: 56, fontWeight: FontWeight.w800, height: 1.1),
-        displayMedium: GoogleFonts.cairo(fontSize: 40, fontWeight: FontWeight.w700, height: 1.2),
-        displaySmall: GoogleFonts.cairo(fontSize: 32, fontWeight: FontWeight.w700, height: 1.2),
-        headlineLarge: GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.w700, height: 1.25),
-        headlineMedium: GoogleFonts.cairo(fontSize: 20, fontWeight: FontWeight.w600, height: 1.25),
-        headlineSmall: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.w600, height: 1.25),
-        titleLarge: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600, height: 1.25),
-        titleMedium: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w500, height: 1.25),
-        titleSmall: GoogleFonts.cairo(fontSize: 12, fontWeight: FontWeight.w500, height: 1.25),
-        bodyLarge: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w400, height: 1.25),
-        bodyMedium: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w400, height: 1.25),
-        bodySmall: GoogleFonts.cairo(fontSize: 12, fontWeight: FontWeight.w400, height: 1.25),
-        labelLarge: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600, height: 1.2),
-        labelMedium: GoogleFonts.cairo(fontSize: 12, fontWeight: FontWeight.w500, height: 1.2),
-        labelSmall: GoogleFonts.cairo(fontSize: 12, fontWeight: FontWeight.w400, height: 1.25),
+        displayLarge: GoogleFonts.cairo(
+            fontSize: 56, fontWeight: FontWeight.w800, height: 1.1),
+        displayMedium: GoogleFonts.cairo(
+            fontSize: 40, fontWeight: FontWeight.w700, height: 1.2),
+        displaySmall: GoogleFonts.cairo(
+            fontSize: 32, fontWeight: FontWeight.w700, height: 1.2),
+        headlineLarge: GoogleFonts.cairo(
+            fontSize: 26, fontWeight: FontWeight.w700, height: 1.3),
+        headlineMedium: GoogleFonts.cairo(
+            fontSize: 22, fontWeight: FontWeight.w600, height: 1.3),
+        headlineSmall: GoogleFonts.cairo(
+            fontSize: 18, fontWeight: FontWeight.w600, height: 1.3),
+        titleLarge: GoogleFonts.cairo(
+            fontSize: 15, fontWeight: FontWeight.w600, height: 1.25),
+        titleMedium: GoogleFonts.cairo(
+            fontSize: 13, fontWeight: FontWeight.w500, height: 1.25),
+        titleSmall: GoogleFonts.cairo(
+            fontSize: 12, fontWeight: FontWeight.w500, height: 1.25),
+        bodyLarge: GoogleFonts.cairo(
+            fontSize: 17, fontWeight: FontWeight.w400, height: 1.35),
+        bodyMedium: GoogleFonts.cairo(
+            fontSize: 16, fontWeight: FontWeight.w400, height: 1.35),
+        bodySmall: GoogleFonts.cairo(
+            fontSize: 14, fontWeight: FontWeight.w400, height: 1.35),
+        labelLarge: GoogleFonts.cairo(
+            fontSize: 15, fontWeight: FontWeight.w600, height: 1.25),
+        labelMedium: GoogleFonts.cairo(
+            fontSize: 13, fontWeight: FontWeight.w500, height: 1.25),
+        labelSmall: GoogleFonts.cairo(
+            fontSize: 12, fontWeight: FontWeight.w400, height: 1.25),
       );
 
   static AppBarTheme get _appBarTheme => AppBarTheme(
@@ -102,7 +118,7 @@ abstract final class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: true,
         titleTextStyle: GoogleFonts.cairo(
-          fontSize: 18,
+          fontSize: 20,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
         ),
@@ -124,31 +140,38 @@ abstract final class AppTheme {
         clipBehavior: Clip.antiAlias,
       );
 
-  static ElevatedButtonThemeData get _elevatedButtonTheme => ElevatedButtonThemeData(
+  static ElevatedButtonThemeData get _elevatedButtonTheme =>
+      ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.gold,
           foregroundColor: AppColors.textOnGold,
-          textStyle: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w700),
+          textStyle:
+              GoogleFonts.cairo(fontSize: 17, fontWeight: FontWeight.w700),
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           elevation: 0,
         ),
       );
 
-  static OutlinedButtonThemeData get _outlinedButtonTheme => OutlinedButtonThemeData(
+  static OutlinedButtonThemeData get _outlinedButtonTheme =>
+      OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.gold,
-          textStyle: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle:
+              GoogleFonts.cairo(fontSize: 17, fontWeight: FontWeight.w600),
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           side: const BorderSide(color: AppColors.goldMuted, width: 1.5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       );
 
   static TextButtonThemeData get _textButtonTheme => TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.gold,
-          textStyle: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle:
+              GoogleFonts.cairo(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       );
 }

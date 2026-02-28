@@ -23,7 +23,7 @@ class UserProfile extends HiveObject {
   @HiveField(4)
   final bool hapticsEnabled;
 
-  /// Font scale: 0.85 | 1.0 | 1.15
+  /// Font scale presets: 1.00 | 1.12 | 1.24
   @HiveField(5)
   final double fontScale;
 
@@ -36,7 +36,7 @@ class UserProfile extends HiveObject {
     this.languageCode = 'ar',
     this.soundEnabled = true,
     this.hapticsEnabled = true,
-    this.fontScale = 1.0,
+    this.fontScale = 1.12,
     required this.createdAt,
   });
 
@@ -44,7 +44,7 @@ class UserProfile extends HiveObject {
         languageCode: 'ar',
         soundEnabled: true,
         hapticsEnabled: true,
-        fontScale: 1.0,
+        fontScale: 1.12,
         createdAt: DateTime.now(),
       );
 

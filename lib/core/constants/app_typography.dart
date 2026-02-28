@@ -25,69 +25,69 @@ abstract final class AppTypography {
 
   // ─── Heading ────────────────────────────────────────────────────
   static TextStyle get headingLarge => GoogleFonts.cairo(
-        fontSize: 24,
+        fontSize: 26,
         fontWeight: FontWeight.w700,
         color: AppColors.textPrimary,
-        height: 1.25,
+        height: 1.3,
       );
 
   static TextStyle get headingMedium => GoogleFonts.cairo(
-        fontSize: 20,
+        fontSize: 22,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
-        height: 1.25,
+        height: 1.3,
       );
 
   static TextStyle get headingSmall => GoogleFonts.cairo(
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
-        height: 1.25,
+        height: 1.3,
       );
 
   // ─── Body ────────────────────────────────────────────────────────
   static TextStyle get bodyLarge => GoogleFonts.cairo(
-        fontSize: 16,
+        fontSize: 17,
         fontWeight: FontWeight.w400,
         color: AppColors.textPrimary,
-        height: 1.25,
+        height: 1.35,
       );
 
   static TextStyle get bodyMedium => GoogleFonts.cairo(
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: FontWeight.w400,
         color: AppColors.textPrimary,
-        height: 1.25,
+        height: 1.35,
       );
 
   static TextStyle get bodySmall => GoogleFonts.cairo(
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: FontWeight.w400,
         color: AppColors.textSecondary,
-        height: 1.25,
+        height: 1.35,
       );
 
   // ─── Label / Caption ────────────────────────────────────────────
   static TextStyle get labelLarge => GoogleFonts.cairo(
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
-        height: 1.2,
+        height: 1.25,
       );
 
   static TextStyle get labelMedium => GoogleFonts.cairo(
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: FontWeight.w500,
         color: AppColors.textSecondary,
-        height: 1.2,
+        height: 1.25,
       );
 
   /// Caption — minimum 12px for accessibility (WCAG)
   static TextStyle get caption => GoogleFonts.cairo(
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: FontWeight.w400,
         color: AppColors.textDisabled,
-        height: 1.25,
+        height: 1.35,
       );
 
   // ─── Game-specific ───────────────────────────────────────────────
@@ -133,6 +133,7 @@ abstract final class AppTypography {
       );
 
   // ─── Gold variants ────────────────────────────────────────────────
-  static TextStyle get goldHeading => headingLarge.copyWith(color: AppColors.gold);
+  static TextStyle get goldHeading =>
+      headingLarge.copyWith(color: AppColors.gold);
   static TextStyle get goldLabel => labelLarge.copyWith(color: AppColors.gold);
 }

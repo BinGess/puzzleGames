@@ -8,6 +8,7 @@ import '../../data/repositories/score_repository.dart';
 import '../../data/repositories/analytics_repository.dart';
 import '../../domain/services/lq_calculator_service.dart';
 import '../../domain/enums/game_type.dart';
+import '../../core/constants/app_font_scale.dart';
 import '../../core/utils/haptics.dart';
 
 // ─── Repositories (singletons) ───────────────────────────────────────
@@ -57,14 +58,13 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
   }
 
   Future<void> setFontScale(double scale) async {
-    await _repo.updateFontScale(scale);
+    await _repo.updateFontScale(AppFontScale.normalize(scale));
     state = _repo.profile;
   }
 }
 
 // ─── Ability / LQ ────────────────────────────────────────────────────
-final abilityProvider =
-    StateNotifierProvider<AbilityNotifier, AbilitySnapshot>(
+final abilityProvider = StateNotifierProvider<AbilityNotifier, AbilitySnapshot>(
   (ref) => AbilityNotifier(
     ref.read(analyticsRepoProvider),
     ref.read(scoreRepoProvider),
@@ -117,8 +117,7 @@ final gameScoresProvider =
   return ref.read(scoreRepoProvider).getScoresForGame(gameId);
 });
 
-final bestScoreProvider =
-    Provider.family<ScoreRecord?, String>((ref, gameId) {
+final bestScoreProvider = Provider.family<ScoreRecord?, String>((ref, gameId) {
   ref.watch(scoresChangedProvider);
   final gameType = GameType.values.firstWhere(
     (g) => g.id == gameId,
