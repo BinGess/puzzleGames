@@ -6,7 +6,6 @@ import '../../core/constants/app_typography.dart';
 import '../../core/l10n/app_localizations.dart';
 import '../../core/router/app_router.dart';
 import '../../core/utils/haptics.dart';
-import '../../core/utils/tr.dart';
 import '../../domain/enums/game_type.dart';
 import '../providers/app_providers.dart';
 import 'widgets/game_card.dart';
@@ -17,12 +16,8 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppL10n.of(context);
+
     ref.watch(scoresChangedProvider);
-    final allScores = ref.read(scoreRepoProvider).getAllScores();
-    final totalSessions = allScores.length;
-    final playedGames = allScores.map((s) => s.gameId).toSet().length;
-    final featuredType = _displayOrder.first;
-    final featuredData = _buildCardData(featuredType, ref);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -31,7 +26,6 @@ class DashboardScreen extends ConsumerWidget {
           const Positioned.fill(child: _DashboardBackground()),
           CustomScrollView(
             slivers: [
-              // ─── App Bar ──────────────────────────────────────────────
               SliverAppBar(
                 pinned: true,
                 backgroundColor: Colors.transparent,
@@ -59,56 +53,7 @@ class DashboardScreen extends ConsumerWidget {
                   },
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 8)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                  child: _FeaturedMixCard(
-                    featuredData: featuredData,
-                    totalSessions: totalSessions,
-                    onStart: () =>
-                        context.push(AppRoutes.gameRoute(featuredType)),
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 14)),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsetsDirectional.only(start: 20),
-                  child: _ModeChipRow(),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        l10n.gamesSection,
-                        style: AppTypography.headingSmall.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(
-                        tr(
-                          context,
-                          '$playedGames/${GameType.values.length} ألعاب',
-                          '$playedGames/${GameType.values.length} tracks ready',
-                          '已解锁 $playedGames/${GameType.values.length} 项',
-                        ),
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // ─── Game Grid ────────────────────────────────────────────
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                 sliver: SliverLayoutBuilder(
@@ -156,19 +101,17 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  // ─── Display order follows recommendation priority ────────────────
-  // (Hive IDs remain unchanged so score history is unaffected)
   static const _displayOrder = [
-    GameType.schulteGrid, // #1  首选 — 视觉搜索
-    GameType.stroopTest, // #2  次选 — 抗干扰
-    GameType.reverseMemory, // #3  倒序记忆
-    GameType.sequenceMemory, // #4  序列/Simon Says
-    GameType.towerOfHanoi, // #5  汉诺塔
-    GameType.reactionTime, // #6  反应时间
-    GameType.numberMemory, // #7  数字记忆
-    GameType.visualMemory, // #8  视觉记忆
-    GameType.numberMatrix, // #10 猩猩测试 (Chimp Test)
-    GameType.slidingPuzzle, // #11 数字华容道
+    GameType.schulteGrid,
+    GameType.stroopTest,
+    GameType.reverseMemory,
+    GameType.sequenceMemory,
+    GameType.towerOfHanoi,
+    GameType.reactionTime,
+    GameType.numberMemory,
+    GameType.visualMemory,
+    GameType.numberMatrix,
+    GameType.slidingPuzzle,
   ];
 
   GameCardData _buildCardData(GameType type, WidgetRef ref) {
@@ -258,7 +201,6 @@ class _DashboardBackground extends StatelessWidget {
     return IgnorePointer(
       child: Stack(
         children: [
-          // Deep dark base gradient
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -274,7 +216,6 @@ class _DashboardBackground extends StatelessWidget {
               ),
             ),
           ),
-          // Gold glow — top right
           Positioned(
             top: -140,
             right: -100,
@@ -283,7 +224,6 @@ class _DashboardBackground extends StatelessWidget {
               color: AppColors.sequenceMemory.withValues(alpha: 0.14),
             ),
           ),
-          // Purple/blue glow — bottom left
           Positioned(
             bottom: -200,
             left: -140,
@@ -292,7 +232,6 @@ class _DashboardBackground extends StatelessWidget {
               color: AppColors.reaction.withValues(alpha: 0.13),
             ),
           ),
-          // Mid accent glow — center
           Positioned(
             top: 260,
             right: -60,
@@ -301,7 +240,6 @@ class _DashboardBackground extends StatelessWidget {
               color: AppColors.gold.withValues(alpha: 0.055),
             ),
           ),
-          // Full-screen texture
           const Positioned.fill(
             child: CustomPaint(
               painter: _TexturePainter(),
@@ -342,7 +280,6 @@ class _TexturePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // ── Diagonal hatching lines ──────────────────────────────────────────
     final linePaint = Paint()
       ..color = AppColors.border.withValues(alpha: 0.14)
       ..strokeWidth = 0.5;
@@ -355,7 +292,6 @@ class _TexturePainter extends CustomPainter {
       );
     }
 
-    // ── Horizontal scan lines (subtle, every 60px) ───────────────────────
     final scanPaint = Paint()
       ..color = AppColors.gold.withValues(alpha: 0.025)
       ..strokeWidth = 0.5;
@@ -363,7 +299,6 @@ class _TexturePainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), scanPaint);
     }
 
-    // ── Vinyl rings (music streaming motif) ─────────────────────────────
     final ringPaint = Paint()
       ..color = AppColors.textSecondary.withValues(alpha: 0.05)
       ..strokeWidth = 0.8
@@ -379,7 +314,6 @@ class _TexturePainter extends CustomPainter {
       }
     }
 
-    // ── Subtle grain dots ───────────────────────────────────────────────
     final dotPaint = Paint()..color = AppColors.gold.withValues(alpha: 0.050);
     const dotSpacing = 28.0;
     for (double y = 10; y < size.height; y += dotSpacing) {
@@ -418,255 +352,6 @@ class _GlassIconButton extends StatelessWidget {
           onTap: onTap,
           child: Icon(icon, color: AppColors.textSecondary, size: 20),
         ),
-      ),
-    );
-  }
-}
-
-class _FeaturedMixCard extends StatelessWidget {
-  final GameCardData featuredData;
-  final int totalSessions;
-  final VoidCallback onStart;
-
-  const _FeaturedMixCard({
-    required this.featuredData,
-    required this.totalSessions,
-    required this.onStart,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: tr(
-        context,
-        'مزيج اليوم. ابدأ ${featuredData.nameAr}',
-        'Daily mix. Start ${featuredData.nameEn}',
-        '今日精选，开始${featuredData.nameZh}',
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(22),
-        child: InkWell(
-          onTap: () {
-            Haptics.light();
-            onStart();
-          },
-          borderRadius: BorderRadius.circular(22),
-          splashColor: featuredData.accentColor.withValues(alpha: 0.12),
-          child: Ink(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF13182D),
-                  Color(0xFF191838),
-                  Color(0xFF121321),
-                ],
-              ),
-              border: Border.all(
-                color: featuredData.accentColor.withValues(alpha: 0.35),
-                width: 0.7,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: featuredData.accentColor.withValues(alpha: 0.20),
-                  blurRadius: 22,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  right: -6,
-                  top: -18,
-                  child: Icon(
-                    featuredData.icon,
-                    size: 94,
-                    color: featuredData.accentColor.withValues(alpha: 0.22),
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.reaction.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: AppColors.reaction.withValues(alpha: 0.45),
-                          width: 0.7,
-                        ),
-                      ),
-                      child: Text(
-                        tr(context, 'مزيج معرفي يومي', 'DAILY COGNITIVE MIX',
-                            '每日认知精选'),
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.reaction,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      tr(context, 'تدريب بنَفَس موسيقي',
-                          'Train in a Streaming Flow', '像听歌一样训练'),
-                      style: AppTypography.headingSmall.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      tr(
-                        context,
-                        'ابدأ بـ ${featuredData.nameAr} وتابع جلسة مركّزة.',
-                        'Start with ${featuredData.nameEn} and keep the focus rhythm.',
-                        '从${featuredData.nameZh}开始，进入专注节奏。',
-                      ),
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: featuredData.accentColor
-                                .withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            Icons.play_arrow_rounded,
-                            color: featuredData.accentColor,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          tr(context, 'ابدأ الآن', 'Start Mix', '立即开始'),
-                          style: AppTypography.labelMedium.copyWith(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          tr(
-                            context,
-                            '$totalSessions جلسة',
-                            '$totalSessions sessions',
-                            '$totalSessions 次训练',
-                          ),
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ModeChipRow extends StatelessWidget {
-  const _ModeChipRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _ModeChip(
-            icon: Icons.auto_graph_rounded,
-            label: tr(context, 'تركيز', 'Focus', '专注'),
-            active: true,
-          ),
-          _ModeChip(
-            icon: Icons.memory_rounded,
-            label: tr(context, 'ذاكرة', 'Memory', '记忆'),
-          ),
-          _ModeChip(
-            icon: Icons.bolt_rounded,
-            label: tr(context, 'سرعة', 'Speed', '速度'),
-          ),
-          _ModeChip(
-            icon: Icons.account_tree_rounded,
-            label: tr(context, 'منطق', 'Logic', '逻辑'),
-          ),
-          _ModeChip(
-            icon: Icons.extension_rounded,
-            label: tr(context, 'تحدي', 'Challenge', '挑战'),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-    );
-  }
-}
-
-class _ModeChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-
-  const _ModeChip({
-    required this.icon,
-    required this.label,
-    this.active = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? AppColors.reaction : AppColors.textSecondary;
-    return Container(
-      margin: const EdgeInsetsDirectional.only(end: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: active
-            ? AppColors.reaction.withValues(alpha: 0.15)
-            : AppColors.surface.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: active
-              ? AppColors.reaction.withValues(alpha: 0.45)
-              : AppColors.border.withValues(alpha: 0.7),
-          width: 0.7,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: AppTypography.caption.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }

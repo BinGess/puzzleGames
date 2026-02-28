@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
+import '../../../core/l10n/app_localizations.dart';
 import '../../../core/utils/haptics.dart';
-import '../../../core/utils/tr.dart';
 import '../../../domain/enums/game_type.dart';
 import '../../../data/models/score_record.dart';
 
@@ -27,8 +27,6 @@ class GameCardData {
   });
 }
 
-// ─── Game Card ────────────────────────────────────────────────────────────────
-
 class GameCard extends StatelessWidget {
   final GameCardData data;
   final VoidCallback onTap;
@@ -37,14 +35,13 @@ class GameCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
+    final gameName = _localizedName(context);
+    final tagline = _tagline(l10n);
+
     return Semantics(
       button: true,
-      label: tr(
-        context,
-        '${data.nameAr}، ${_tagline(context)}',
-        '${data.nameEn}, ${_tagline(context)}',
-        '${data.nameZh}，${_tagline(context)}',
-      ),
+      label: l10n.gameCardSemantics(gameName, tagline),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -52,59 +49,52 @@ class GameCard extends StatelessWidget {
             Haptics.light();
             onTap();
           },
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           splashColor: data.accentColor.withValues(alpha: 0.12),
           highlightColor: data.accentColor.withValues(alpha: 0.06),
           child: Ink(
             decoration: BoxDecoration(
               color: const Color(0xFF0E0E1C),
-              borderRadius: BorderRadius.circular(20),
-              border: BorderDirectional(
-                top: BorderSide(
-                    color: data.accentColor.withValues(alpha: 0.30),
-                    width: 0.5),
-                bottom: const BorderSide(color: AppColors.border, width: 0.5),
-                start: BorderSide(color: data.accentColor, width: 2.5),
-                end: const BorderSide(color: AppColors.border, width: 0.5),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: data.accentColor.withValues(alpha: 0.22),
+                width: 0.6,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: data.accentColor.withValues(alpha: 0.18),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
+                  color: data.accentColor.withValues(alpha: 0.14),
+                  blurRadius: 16,
+                  offset: const Offset(0, 7),
                 ),
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.34),
-                  blurRadius: 8,
+                  blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(19.5),
+              borderRadius: BorderRadius.circular(21.5),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ── Art banner (top) ───────────────────────────────────
                   Expanded(
                     flex: 52,
                     child: _ArtBanner(
-                      icon: data.icon,
+                      type: data.type,
                       accentColor: data.accentColor,
-                      category: _category(context),
                     ),
                   ),
-                  // ── Separator ────────────────────────────────────────────
                   Container(
                     height: 0.5,
                     color: data.accentColor.withValues(alpha: 0.20),
                   ),
-                  // ── Info section (bottom) ───────────────────────────────
                   Expanded(
                     flex: 48,
                     child: _InfoSection(
                       data: data,
-                      tagline: _tagline(context),
+                      gameName: gameName,
+                      tagline: tagline,
                     ),
                   ),
                 ],
@@ -116,55 +106,36 @@ class GameCard extends StatelessWidget {
     );
   }
 
-  String _category(BuildContext context) => switch (data.type) {
-        GameType.schulteGrid => tr(context, 'بصر سريع', 'VISUAL SCAN', '视觉扫描'),
-        GameType.reactionTime => tr(context, 'ردود فعل', 'REFLEX', '反应力'),
-        GameType.numberMemory => tr(context, 'ذاكرة أرقام', 'MEMORY', '数字记忆'),
-        GameType.stroopTest => tr(context, 'تركيز', 'FOCUS', '专注力'),
-        GameType.visualMemory =>
-          tr(context, 'ذاكرة بصرية', 'VISUAL MEM', '视觉记忆'),
-        GameType.sequenceMemory => tr(context, 'تسلسل', 'SEQUENCE', '序列'),
-        GameType.numberMatrix => tr(context, 'إدراك', 'COGNITION', '认知力'),
-        GameType.reverseMemory => tr(context, 'عكس', 'REVERSE', '逆向'),
-        GameType.slidingPuzzle => tr(context, 'فضاء', 'SPATIAL', '空间'),
-        GameType.towerOfHanoi => tr(context, 'استراتيجية', 'STRATEGY', '策略'),
-      };
+  String _localizedName(BuildContext context) {
+    final code = Localizations.localeOf(context).languageCode;
+    return switch (code) {
+      'ar' => data.nameAr,
+      'zh' => data.nameZh,
+      _ => data.nameEn,
+    };
+  }
 
-  String _tagline(BuildContext context) => switch (data.type) {
-        GameType.schulteGrid => tr(context, 'سرعة الإدراك والتركيز',
-            'Perception & Focus Speed', '专注与感知速度'),
-        GameType.reactionTime => tr(
-            context, 'اختبر زمن الاستجابة', 'Train Instant Reaction', '训练瞬时反应'),
-        GameType.numberMemory =>
-          tr(context, 'احتفظ بسلاسل أطول', 'Retain Longer Digits', '记住更长数字'),
-        GameType.stroopTest => tr(context, 'قاوم التداخل البصري',
-            'Resist Visual Interference', '抗干扰训练'),
-        GameType.visualMemory =>
-          tr(context, 'تتبع الأنماط بسرعة', 'Track Patterns Quickly', '快速记忆图形'),
-        GameType.sequenceMemory => tr(context, 'استدعاء التسلسل بدقة',
-            'Recall Sequence Precisely', '精准序列记忆'),
-        GameType.numberMatrix => tr(context, 'ذاكرة مواقع الأرقام',
-            'Remember Number Positions', '数字位置记忆'),
-        GameType.reverseMemory =>
-          tr(context, 'عكس السلسلة ذهنيًا', 'Reverse the Sequence', '倒序工作记忆'),
-        GameType.slidingPuzzle => tr(context, 'تفكير مكاني وخطوات أقل',
-            'Spatial Planning Challenge', '空间规划挑战'),
-        GameType.towerOfHanoi => tr(context, 'تخطيط متعدد الخطوات',
-            'Multi-step Strategic Logic', '多步策略推理'),
+  String _tagline(AppL10n l10n) => switch (data.type) {
+        GameType.schulteGrid => l10n.taglineSchulte,
+        GameType.reactionTime => l10n.taglineReaction,
+        GameType.numberMemory => l10n.taglineNumberMemory,
+        GameType.stroopTest => l10n.taglineStroop,
+        GameType.visualMemory => l10n.taglineVisual,
+        GameType.sequenceMemory => l10n.taglineSequence,
+        GameType.numberMatrix => l10n.taglineMatrix,
+        GameType.reverseMemory => l10n.taglineReverse,
+        GameType.slidingPuzzle => l10n.taglineSliding,
+        GameType.towerOfHanoi => l10n.taglineHanoi,
       };
 }
 
-// ─── Art Banner ───────────────────────────────────────────────────────────────
-
 class _ArtBanner extends StatelessWidget {
-  final IconData icon;
+  final GameType type;
   final Color accentColor;
-  final String category;
 
   const _ArtBanner({
-    required this.icon,
+    required this.type,
     required this.accentColor,
-    required this.category,
   });
 
   @override
@@ -172,113 +143,27 @@ class _ArtBanner extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Painted gradient bg + circuit texture
         CustomPaint(
           painter: _ArtBannerPainter(accentColor: accentColor),
         ),
-
-        // Outer halo glow ring
-        Center(
-          child: Container(
-            width: 86,
-            height: 86,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  accentColor.withValues(alpha: 0.30),
-                  accentColor.withValues(alpha: 0.08),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.55, 1.0],
-              ),
-            ),
-          ),
-        ),
-
-        // Icon circle with metallic gradient + glow border
-        Center(
-          child: Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF1E1E2E), Color(0xFF0C0C18)],
-              ),
-              border: Border.all(
-                color: accentColor.withValues(alpha: 0.65),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: accentColor.withValues(alpha: 0.45),
-                  blurRadius: 18,
-                  spreadRadius: 1,
-                ),
-                BoxShadow(
-                  color: accentColor.withValues(alpha: 0.18),
-                  blurRadius: 6,
-                  spreadRadius: 4,
-                ),
-              ],
-            ),
-            child: Icon(
-              icon,
-              color: accentColor,
-              size: 26,
-            ),
-          ),
-        ),
-
-        // Category chip top-left
-        Positioned(
-          top: 8,
-          left: 8,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-            decoration: BoxDecoration(
-              color: const Color(0xCC0E1020),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: accentColor.withValues(alpha: 0.42),
-                width: 0.6,
-              ),
-            ),
-            child: Text(
-              category,
-              style: AppTypography.caption.copyWith(
-                color: accentColor,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.55,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-        const Positioned(
-          left: 10,
-          right: 10,
-          bottom: 8,
-          child: _EqualizerLine(),
+        CustomPaint(
+          painter: _CoverArtworkPainter(type: type, accentColor: accentColor),
         ),
       ],
     );
   }
 }
 
-// ─── Info Section ─────────────────────────────────────────────────────────────
-
 class _InfoSection extends StatelessWidget {
   final GameCardData data;
+  final String gameName;
   final String tagline;
 
-  const _InfoSection({required this.data, required this.tagline});
+  const _InfoSection({
+    required this.data,
+    required this.gameName,
+    required this.tagline,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -297,13 +182,12 @@ class _InfoSection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      tr(context, data.nameAr, data.nameEn, data.nameZh),
+                      gameName,
                       style: AppTypography.labelLarge.copyWith(
                         fontSize: 14,
                         color: AppColors.textPrimary,
                         fontWeight: FontWeight.w700,
                       ),
-                      textAlign: TextAlign.start,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -314,33 +198,15 @@ class _InfoSection extends StatelessWidget {
                         color: AppColors.textSecondary,
                         fontSize: 10,
                       ),
-                      textAlign: TextAlign.start,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: data.accentColor.withValues(alpha: 0.14),
-                  border: Border.all(
-                      color: data.accentColor.withValues(alpha: 0.35)),
-                ),
-                child: Icon(
-                  Icons.play_arrow_rounded,
-                  color: data.accentColor,
-                  size: 15,
-                ),
-              ),
             ],
           ),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               data.bestScore != null
                   ? _ScoreBadge(
@@ -350,14 +216,6 @@ class _InfoSection extends StatelessWidget {
                       color: data.accentColor,
                     )
                   : _NewBadge(color: data.accentColor),
-              Text(
-                tr(context, 'انقر للتشغيل', 'Tap to play', '点击开始'),
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.textDisabled,
-                  fontSize: 9,
-                  letterSpacing: 0.25,
-                ),
-              )
             ],
           ),
         ],
@@ -366,8 +224,6 @@ class _InfoSection extends StatelessWidget {
   }
 }
 
-// ─── New Badge ────────────────────────────────────────────────────────────────
-
 class _NewBadge extends StatelessWidget {
   final Color color;
 
@@ -375,6 +231,7 @@ class _NewBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -383,7 +240,7 @@ class _NewBadge extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.40)),
       ),
       child: Text(
-        tr(context, 'جديد', 'New', '新'),
+        l10n.dashboardNewLabel,
         style: AppTypography.caption.copyWith(
           color: color,
           fontWeight: FontWeight.w600,
@@ -393,8 +250,6 @@ class _NewBadge extends StatelessWidget {
     );
   }
 }
-
-// ─── Score Badge ──────────────────────────────────────────────────────────────
 
 class _ScoreBadge extends StatelessWidget {
   final double score;
@@ -446,8 +301,6 @@ class _ScoreBadge extends StatelessWidget {
   }
 }
 
-// ─── Art Banner Painter ───────────────────────────────────────────────────────
-
 class _ArtBannerPainter extends CustomPainter {
   final Color accentColor;
 
@@ -455,7 +308,6 @@ class _ArtBannerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // ── Background gradient ──────────────────────────────────────────────
     final bgPaint = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
@@ -465,7 +317,6 @@ class _ArtBannerPainter extends CustomPainter {
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
-    // ── Radial accent glow ───────────────────────────────────────────────
     final radialRect = Rect.fromCircle(
       center: Offset(size.width * 0.78, size.height * 0.22),
       radius: size.width * 0.75,
@@ -473,32 +324,14 @@ class _ArtBannerPainter extends CustomPainter {
     final glowPaint = Paint()
       ..shader = RadialGradient(
         colors: [
-          accentColor.withValues(alpha: 0.22),
-          accentColor.withValues(alpha: 0.10),
+          accentColor.withValues(alpha: 0.16),
+          accentColor.withValues(alpha: 0.07),
           accentColor.withValues(alpha: 0.0),
         ],
         stops: const [0.0, 0.35, 1.0],
       ).createShader(radialRect);
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), glowPaint);
 
-    // ── Horizontal grooves (music texture) ──────────────────────────────
-    final linePaint = Paint()
-      ..color = accentColor.withValues(alpha: 0.045)
-      ..strokeWidth = 0.5;
-    for (double y = 8; y < size.height; y += 12) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
-    }
-
-    // ── Dot texture ─────────────────────────────────────────────────────
-    final dotPaint = Paint()..color = accentColor.withValues(alpha: 0.08);
-    const dotSpacing = 18.0;
-    for (double x = 4; x < size.width * 0.45; x += dotSpacing) {
-      for (double y = 6; y < size.height * 0.75; y += dotSpacing) {
-        canvas.drawCircle(Offset(x, y), 0.9, dotPaint);
-      }
-    }
-
-    // ── Bottom fade into info section ────────────────────────────────────
     final fadeRect =
         Rect.fromLTWH(0, size.height * 0.5, size.width, size.height * 0.5);
     final fadePaint = Paint()
@@ -518,32 +351,276 @@ class _ArtBannerPainter extends CustomPainter {
       old.accentColor != accentColor;
 }
 
-class _EqualizerLine extends StatelessWidget {
-  const _EqualizerLine();
+class _CoverArtworkPainter extends CustomPainter {
+  final GameType type;
+  final Color accentColor;
+
+  const _CoverArtworkPainter({
+    required this.type,
+    required this.accentColor,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 14,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List.generate(16, (i) {
-          final h = [4.0, 8.0, 6.0, 10.0, 5.0, 11.0, 7.0, 9.0][i % 8];
-          return Expanded(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                height: h,
-                width: 2,
-                decoration: BoxDecoration(
-                  color: AppColors.textPrimary.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
+  void paint(Canvas canvas, Size size) {
+    switch (type) {
+      case GameType.schulteGrid:
+        _drawSchulte(canvas, size);
+      case GameType.reactionTime:
+        _drawReaction(canvas, size);
+      case GameType.numberMemory:
+        _drawNumberMemory(canvas, size);
+      case GameType.stroopTest:
+        _drawStroop(canvas, size);
+      case GameType.visualMemory:
+        _drawVisual(canvas, size);
+      case GameType.sequenceMemory:
+        _drawSequence(canvas, size);
+      case GameType.numberMatrix:
+        _drawMatrix(canvas, size);
+      case GameType.reverseMemory:
+        _drawReverse(canvas, size);
+      case GameType.slidingPuzzle:
+        _drawSliding(canvas, size);
+      case GameType.towerOfHanoi:
+        _drawHanoi(canvas, size);
+    }
+  }
+
+  void _drawSchulte(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = accentColor.withValues(alpha: 0.22)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    const grid = 4;
+    final w = size.width * 0.52;
+    final h = size.height * 0.52;
+    final left = size.width * 0.23;
+    final top = size.height * 0.22;
+    final cw = w / grid;
+    final ch = h / grid;
+    for (int i = 0; i <= grid; i++) {
+      canvas.drawLine(
+        Offset(left + i * cw, top),
+        Offset(left + i * cw, top + h),
+        p,
+      );
+      canvas.drawLine(
+        Offset(left, top + i * ch),
+        Offset(left + w, top + i * ch),
+        p,
+      );
+    }
+    final pathPaint = Paint()
+      ..color = accentColor.withValues(alpha: 0.65)
+      ..strokeWidth = 1.8
+      ..style = PaintingStyle.stroke;
+    final path = Path()
+      ..moveTo(left + cw * 0.5, top + ch * 3.4)
+      ..lineTo(left + cw * 1.5, top + ch * 2.6)
+      ..lineTo(left + cw * 2.5, top + ch * 1.8)
+      ..lineTo(left + cw * 3.2, top + ch * 0.8);
+    canvas.drawPath(path, pathPaint);
+  }
+
+  void _drawReaction(Canvas canvas, Size size) {
+    final center = Offset(size.width * 0.5, size.height * 0.52);
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    for (int i = 1; i <= 4; i++) {
+      ring.color = accentColor.withValues(alpha: 0.12 + i * 0.05);
+      canvas.drawCircle(center, 10 + i * 12, ring);
+    }
+    final pulse = Paint()
+      ..color = accentColor.withValues(alpha: 0.70)
+      ..strokeWidth = 1.8
+      ..style = PaintingStyle.stroke;
+    final path = Path();
+    final y = size.height * 0.26;
+    path.moveTo(size.width * 0.18, y);
+    path.lineTo(size.width * 0.34, y);
+    path.lineTo(size.width * 0.40, y - 9);
+    path.lineTo(size.width * 0.47, y + 8);
+    path.lineTo(size.width * 0.56, y - 12);
+    path.lineTo(size.width * 0.66, y);
+    path.lineTo(size.width * 0.82, y);
+    canvas.drawPath(path, pulse);
+  }
+
+  void _drawNumberMemory(Canvas canvas, Size size) {
+    final bar = Paint()..color = accentColor.withValues(alpha: 0.22);
+    final hi = Paint()..color = accentColor.withValues(alpha: 0.58);
+    final baseY = size.height * 0.60;
+    final startX = size.width * 0.20;
+    const count = 7;
+    final gap = size.width * 0.08;
+    for (int i = 0; i < count; i++) {
+      final h = (i % 2 == 0 ? 20.0 : 30.0) + (i == 3 ? 12 : 0);
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(startX + i * gap, baseY - h, 10, h),
+        const Radius.circular(3),
+      );
+      canvas.drawRRect(rect, i == 3 ? hi : bar);
+    }
+  }
+
+  void _drawStroop(Canvas canvas, Size size) {
+    final colors = [
+      const Color(0xFFE53935),
+      const Color(0xFF1E88E5),
+      const Color(0xFF43A047),
+      const Color(0xFFFDD835),
+    ];
+    final rects = [
+      Rect.fromLTWH(size.width * 0.22, size.height * 0.32, 52, 14),
+      Rect.fromLTWH(size.width * 0.44, size.height * 0.42, 58, 14),
+      Rect.fromLTWH(size.width * 0.28, size.height * 0.56, 62, 14),
+      Rect.fromLTWH(size.width * 0.54, size.height * 0.28, 50, 14),
+    ];
+    for (int i = 0; i < rects.length; i++) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rects[i], const Radius.circular(8)),
+        Paint()..color = colors[i].withValues(alpha: 0.74),
+      );
+    }
+  }
+
+  void _drawVisual(Canvas canvas, Size size) {
+    const n = 4;
+    final left = size.width * 0.24;
+    final top = size.height * 0.24;
+    final area = size.width * 0.52;
+    final cw = area / n;
+    final on = {1, 4, 6, 10, 13};
+    for (int i = 0; i < n * n; i++) {
+      final x = left + (i % n) * cw;
+      final y = top + (i ~/ n) * cw;
+      final lit = on.contains(i);
+      final r = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x + 2, y + 2, cw - 4, cw - 4),
+        const Radius.circular(4),
+      );
+      canvas.drawRRect(
+        r,
+        Paint()
+          ..color = lit
+              ? accentColor.withValues(alpha: 0.55)
+              : accentColor.withValues(alpha: 0.12),
+      );
+    }
+  }
+
+  void _drawSequence(Canvas canvas, Size size) {
+    final nodes = [
+      Offset(size.width * 0.26, size.height * 0.60),
+      Offset(size.width * 0.38, size.height * 0.38),
+      Offset(size.width * 0.55, size.height * 0.52),
+      Offset(size.width * 0.70, size.height * 0.30),
+      Offset(size.width * 0.78, size.height * 0.58),
+    ];
+    final line = Paint()
+      ..color = accentColor.withValues(alpha: 0.55)
+      ..strokeWidth = 1.8
+      ..style = PaintingStyle.stroke;
+    final path = Path()..moveTo(nodes.first.dx, nodes.first.dy);
+    for (int i = 1; i < nodes.length; i++) {
+      path.lineTo(nodes[i].dx, nodes[i].dy);
+    }
+    canvas.drawPath(path, line);
+
+    for (int i = 0; i < nodes.length; i++) {
+      canvas.drawCircle(
+        nodes[i],
+        i == nodes.length - 1 ? 5.5 : 4.0,
+        Paint()
+          ..color = accentColor.withValues(
+              alpha: i == nodes.length - 1 ? 0.85 : 0.45),
+      );
+    }
+  }
+
+  void _drawMatrix(Canvas canvas, Size size) {
+    final p = Paint()..color = accentColor.withValues(alpha: 0.20);
+    final hi = Paint()..color = accentColor.withValues(alpha: 0.60);
+    final spots = [
+      Offset(size.width * 0.25, size.height * 0.28),
+      Offset(size.width * 0.45, size.height * 0.34),
+      Offset(size.width * 0.63, size.height * 0.24),
+      Offset(size.width * 0.35, size.height * 0.52),
+      Offset(size.width * 0.58, size.height * 0.50),
+      Offset(size.width * 0.74, size.height * 0.62),
+      Offset(size.width * 0.30, size.height * 0.70),
+    ];
+    for (int i = 0; i < spots.length; i++) {
+      canvas.drawCircle(spots[i], i == 0 ? 7 : 5, i == 0 ? hi : p);
+    }
+  }
+
+  void _drawReverse(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = accentColor.withValues(alpha: 0.62)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final y = size.height * 0.52;
+    for (int i = 0; i < 4; i++) {
+      final x = size.width * (0.72 - i * 0.14);
+      canvas.drawLine(Offset(x, y), Offset(x - 16, y - 12), p);
+      canvas.drawLine(Offset(x, y), Offset(x - 16, y + 12), p);
+    }
+  }
+
+  void _drawSliding(Canvas canvas, Size size) {
+    final left = size.width * 0.28;
+    final top = size.height * 0.28;
+    const n = 3;
+    final cell = size.width * 0.14;
+    for (int i = 0; i < n * n; i++) {
+      if (i == 8) continue;
+      final x = left + (i % n) * cell;
+      final y = top + (i ~/ n) * cell;
+      final r = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, y, cell - 4, cell - 4),
+        const Radius.circular(5),
+      );
+      canvas.drawRRect(
+        r,
+        Paint()..color = accentColor.withValues(alpha: 0.16 + (i % 3) * 0.10),
+      );
+    }
+  }
+
+  void _drawHanoi(Canvas canvas, Size size) {
+    final baseY = size.height * 0.70;
+    final pegPaint = Paint()
+      ..color = accentColor.withValues(alpha: 0.40)
+      ..strokeWidth = 2;
+    final pegX = [size.width * 0.30, size.width * 0.50, size.width * 0.70];
+    for (final x in pegX) {
+      canvas.drawLine(
+          Offset(x, baseY), Offset(x, size.height * 0.32), pegPaint);
+    }
+
+    final disks = [42.0, 32.0, 22.0];
+    for (int i = 0; i < disks.length; i++) {
+      final w = disks[i];
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          pegX[0] - w / 2,
+          baseY - 12 - i * 10,
+          w,
+          8,
+        ),
+        const Radius.circular(5),
+      );
+      canvas.drawRRect(
+        rect,
+        Paint()..color = accentColor.withValues(alpha: 0.28 + i * 0.18),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CoverArtworkPainter oldDelegate) {
+    return oldDelegate.type != type || oldDelegate.accentColor != accentColor;
   }
 }

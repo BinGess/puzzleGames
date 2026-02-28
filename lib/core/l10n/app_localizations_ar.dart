@@ -283,4 +283,142 @@ class AppL10nAr extends AppL10n {
 
   @override
   String get allGames => 'جميع الألعاب';
+
+  @override
+  String dashboardTracksReady(int played, int total) {
+    return '$played/$total تمارين جاهزة';
+  }
+
+  @override
+  String featuredMixSemantics(Object gameName) {
+    return 'المزيج المميز: $gameName';
+  }
+
+  @override
+  String get featuredMixChip => 'المزيج المميز';
+
+  @override
+  String get featuredMixTitle => 'جلسة تدريب اليوم';
+
+  @override
+  String featuredMixSubtitle(Object gameName) {
+    return 'ابدأ بـ $gameName وادخل الإيقاع.';
+  }
+
+  @override
+  String get featuredMixStart => 'ابدأ الآن';
+
+  @override
+  String featuredMixSessions(int count) {
+    return '$count جلسة إجمالاً';
+  }
+
+  @override
+  String get featuredContinueTitle => 'أكمل آخر تدريب';
+
+  @override
+  String featuredContinueSubtitle(Object gameName, Object score) {
+    return '$gameName · آخر نتيجة $score';
+  }
+
+  @override
+  String get featuredNoHistory => 'لا يوجد سجل سابق';
+
+  @override
+  String get featuredRecentTrend => 'اتجاه النتائج مؤخرًا';
+
+  @override
+  String get trendImproving => 'يتحسن';
+
+  @override
+  String get trendDeclining => 'يتراجع';
+
+  @override
+  String get trendStable => 'مستقر';
+
+  @override
+  String get modeFocus => 'تركيز';
+
+  @override
+  String get modeMemory => 'ذاكرة';
+
+  @override
+  String get modeSpeed => 'سرعة';
+
+  @override
+  String get modeLogic => 'منطق';
+
+  @override
+  String get modeChallenge => 'تحدي';
+
+  @override
+  String gameCardSemantics(Object name, Object tagline) {
+    return '$name: $tagline';
+  }
+
+  @override
+  String get dashboardTapToPlay => 'اضغط للعب';
+
+  @override
+  String get dashboardNewLabel => 'جديد';
+
+  @override
+  String get gameCategoryVisualScan => 'مسح بصري';
+
+  @override
+  String get gameCategoryReflex => 'رد فعل';
+
+  @override
+  String get gameCategoryMemory => 'ذاكرة';
+
+  @override
+  String get gameCategoryFocus => 'تركيز';
+
+  @override
+  String get gameCategoryVisualMem => 'ذاكرة بصرية';
+
+  @override
+  String get gameCategorySequence => 'تسلسل';
+
+  @override
+  String get gameCategoryCognition => 'إدراك';
+
+  @override
+  String get gameCategoryReverse => 'عكسي';
+
+  @override
+  String get gameCategorySpatial => 'مكاني';
+
+  @override
+  String get gameCategoryStrategy => 'استراتيجية';
+
+  @override
+  String get taglineSchulte => 'ابحث عن الأرقام بالتسلسل وبثبات';
+
+  @override
+  String get taglineReaction => 'استجب لتغير الإشارة فورًا';
+
+  @override
+  String get taglineNumberMemory => 'احفظ الأرقام ثم أعدها بدقة';
+
+  @override
+  String get taglineStroop => 'اختر لون الخط وتجاهل الكلمة';
+
+  @override
+  String get taglineVisual => 'تذكر المربعات المضيئة وحددها';
+
+  @override
+  String get taglineSequence => 'اتبع التسلسل دون كسر الترتيب';
+
+  @override
+  String get taglineMatrix => 'تتبع المواقع تحت ضغط بصري';
+
+  @override
+  String get taglineReverse => 'أدخل الأرقام بالترتيب العكسي بسرعة';
+
+  @override
+  String get taglineSliding => 'حرّك القطع حتى يكتمل الترتيب';
+
+  @override
+  String get taglineHanoi => 'خطط لأقل عدد من النقلات';
 }

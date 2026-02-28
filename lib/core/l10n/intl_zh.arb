@@ -89,5 +89,92 @@
   "digits": "位",
   "noDataYet": "暂无数据 — 先玩一局吧！",
   "recentSessions": "最近会话",
-  "allGames": "所有游戏"
+  "allGames": "所有游戏",
+
+  "dashboardTracksReady": "{played}/{total} 个项目已解锁",
+  "@dashboardTracksReady": {
+    "placeholders": {
+      "played": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+
+  "featuredMixSemantics": "精选训练：{gameName}",
+  "@featuredMixSemantics": {
+    "placeholders": {
+      "gameName": {}
+    }
+  },
+  "featuredMixChip": "精选组合",
+  "featuredMixTitle": "今日训练组合",
+  "featuredMixSubtitle": "从「{gameName}」开始，进入专注节奏。",
+  "@featuredMixSubtitle": {
+    "placeholders": {
+      "gameName": {}
+    }
+  },
+  "featuredMixStart": "开始训练",
+  "featuredMixSessions": "累计 {count} 次训练",
+  "@featuredMixSessions": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "featuredContinueTitle": "继续上次训练",
+  "featuredContinueSubtitle": "{gameName} · 上次 {score}",
+  "@featuredContinueSubtitle": {
+    "placeholders": {
+      "gameName": {},
+      "score": {}
+    }
+  },
+  "featuredNoHistory": "暂无历史记录",
+  "featuredRecentTrend": "最近成绩趋势",
+  "trendImproving": "上升",
+  "trendDeclining": "下降",
+  "trendStable": "稳定",
+
+  "modeFocus": "专注",
+  "modeMemory": "记忆",
+  "modeSpeed": "速度",
+  "modeLogic": "逻辑",
+  "modeChallenge": "挑战",
+
+  "gameCardSemantics": "{name}，{tagline}",
+  "@gameCardSemantics": {
+    "placeholders": {
+      "name": {},
+      "tagline": {}
+    }
+  },
+  "dashboardTapToPlay": "点击开始",
+  "dashboardNewLabel": "新",
+
+  "gameCategoryVisualScan": "视觉搜索",
+  "gameCategoryReflex": "反应",
+  "gameCategoryMemory": "记忆",
+  "gameCategoryFocus": "专注",
+  "gameCategoryVisualMem": "视觉记忆",
+  "gameCategorySequence": "序列",
+  "gameCategoryCognition": "认知",
+  "gameCategoryReverse": "倒序",
+  "gameCategorySpatial": "空间",
+  "gameCategoryStrategy": "策略",
+
+  "taglineSchulte": "按顺序定位数字，保持稳定节奏",
+  "taglineReaction": "捕捉信号变化，快速作答",
+  "taglineNumberMemory": "短时记住数字并准确复现",
+  "taglineStroop": "只看字体颜色，忽略文字含义",
+  "taglineVisual": "记住闪现方块并准确回忆",
+  "taglineSequence": "跟随亮点路径，保持次序",
+  "taglineMatrix": "在干扰中追踪位置变化",
+  "taglineReverse": "在压力下完成倒序回忆",
+  "taglineSliding": "滑动拼块，恢复完整顺序",
+  "taglineHanoi": "规划最少步数完成迁移"
 }

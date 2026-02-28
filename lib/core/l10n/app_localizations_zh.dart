@@ -277,4 +277,142 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get allGames => '所有游戏';
+
+  @override
+  String dashboardTracksReady(int played, int total) {
+    return '$played/$total 个项目已解锁';
+  }
+
+  @override
+  String featuredMixSemantics(Object gameName) {
+    return '精选训练：$gameName';
+  }
+
+  @override
+  String get featuredMixChip => '精选组合';
+
+  @override
+  String get featuredMixTitle => '今日训练组合';
+
+  @override
+  String featuredMixSubtitle(Object gameName) {
+    return '从「$gameName」开始，进入专注节奏。';
+  }
+
+  @override
+  String get featuredMixStart => '开始训练';
+
+  @override
+  String featuredMixSessions(int count) {
+    return '累计 $count 次训练';
+  }
+
+  @override
+  String get featuredContinueTitle => '继续上次训练';
+
+  @override
+  String featuredContinueSubtitle(Object gameName, Object score) {
+    return '$gameName · 上次 $score';
+  }
+
+  @override
+  String get featuredNoHistory => '暂无历史记录';
+
+  @override
+  String get featuredRecentTrend => '最近成绩趋势';
+
+  @override
+  String get trendImproving => '上升';
+
+  @override
+  String get trendDeclining => '下降';
+
+  @override
+  String get trendStable => '稳定';
+
+  @override
+  String get modeFocus => '专注';
+
+  @override
+  String get modeMemory => '记忆';
+
+  @override
+  String get modeSpeed => '速度';
+
+  @override
+  String get modeLogic => '逻辑';
+
+  @override
+  String get modeChallenge => '挑战';
+
+  @override
+  String gameCardSemantics(Object name, Object tagline) {
+    return '$name，$tagline';
+  }
+
+  @override
+  String get dashboardTapToPlay => '点击开始';
+
+  @override
+  String get dashboardNewLabel => '新';
+
+  @override
+  String get gameCategoryVisualScan => '视觉搜索';
+
+  @override
+  String get gameCategoryReflex => '反应';
+
+  @override
+  String get gameCategoryMemory => '记忆';
+
+  @override
+  String get gameCategoryFocus => '专注';
+
+  @override
+  String get gameCategoryVisualMem => '视觉记忆';
+
+  @override
+  String get gameCategorySequence => '序列';
+
+  @override
+  String get gameCategoryCognition => '认知';
+
+  @override
+  String get gameCategoryReverse => '倒序';
+
+  @override
+  String get gameCategorySpatial => '空间';
+
+  @override
+  String get gameCategoryStrategy => '策略';
+
+  @override
+  String get taglineSchulte => '按顺序定位数字，保持稳定节奏';
+
+  @override
+  String get taglineReaction => '捕捉信号变化，快速作答';
+
+  @override
+  String get taglineNumberMemory => '短时记住数字并准确复现';
+
+  @override
+  String get taglineStroop => '只看字体颜色，忽略文字含义';
+
+  @override
+  String get taglineVisual => '记住闪现方块并准确回忆';
+
+  @override
+  String get taglineSequence => '跟随亮点路径，保持次序';
+
+  @override
+  String get taglineMatrix => '在干扰中追踪位置变化';
+
+  @override
+  String get taglineReverse => '在压力下完成倒序回忆';
+
+  @override
+  String get taglineSliding => '滑动拼块，恢复完整顺序';
+
+  @override
+  String get taglineHanoi => '规划最少步数完成迁移';
 }

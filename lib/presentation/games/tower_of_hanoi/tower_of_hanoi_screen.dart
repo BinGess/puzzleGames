@@ -1,3 +1,4 @@
+import 'dart:math' show min;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +13,29 @@ import '../../../domain/enums/game_type.dart';
 import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
+// ─── Disc colour palette (index 0 = size 1 = smallest) ───────────────────────
+const _kDiskColors = [
+  Color(0xFF5AC8FA), // 1 – sky blue
+  Color(0xFF30D158), // 2 – mint green
+  Color(0xFFFFD60A), // 3 – gold
+  Color(0xFFFF9F0A), // 4 – orange
+  Color(0xFFFF453A), // 5 – red
+];
+
+Color _diskColor(int size) =>
+    _kDiskColors[(size - 1).clamp(0, _kDiskColors.length - 1)];
+
+// ─── Layout constants ─────────────────────────────────────────────────────────
+const _kDiscHeight = 30.0;
+const _kDiscGap = 4.0;
+const _kPoleWidth = 9.0;
+const _kBaseHeight = 14.0;
+const _kFloatOffset = 28.0;
+const _kMoveDuration = Duration(milliseconds: 200);
+const _kAnimDuration = Duration(milliseconds: 190);
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 class TowerOfHanoiScreen extends ConsumerStatefulWidget {
   const TowerOfHanoiScreen({super.key});
 
@@ -20,15 +44,22 @@ class TowerOfHanoiScreen extends ConsumerStatefulWidget {
       _TowerOfHanoiScreenState();
 }
 
-class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
+class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
+    with SingleTickerProviderStateMixin {
+  // ─── State ──────────────────────────────────────────────────────────────────
   int _diskCount = 3;
   bool _showingConfig = true;
 
-  // 3 pegs, each holds a list of disk sizes (largest = largest number)
-  List<List<int>> _pegs = [[], [], []];
-  int? _selectedPeg; // peg index user tapped first
+  List<List<int>> _pegs = [[], [], []]; // each list: [largest, ..., smallest]
+  int? _selectedPeg;
   int _moves = 0;
   bool _gameActive = false;
+  bool _isMoving = false; // block taps during move animation
+
+  // Shake feedback
+  int _shakePeg = -1;
+  late final AnimationController _shakeCtrl;
+  late final Animation<double> _shakeAnim;
 
   @override
   void initState() {
@@ -37,10 +68,30 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
       if (!mounted) return;
       GameRulesHelper.ensureShownOnce(context, GameType.towerOfHanoi);
     });
+
+    _shakeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+    _shakeAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: -10.0), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -10.0, end: 10.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 10.0, end: -7.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: -7.0, end: 7.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 7.0, end: 0.0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _shakeCtrl, curve: Curves.easeInOut));
   }
 
+  @override
+  void dispose() {
+    _shakeCtrl.dispose();
+    super.dispose();
+  }
+
+  // ─── Game logic ─────────────────────────────────────────────────────────────
+
   void _startGame() {
-    // Peg 0 starts with discs from bottom (largest) to top (smallest)
+    // Peg 0 = all discs: [diskCount, diskCount-1, ..., 1] (bottom to top)
     final discs = List.generate(_diskCount, (i) => _diskCount - i);
     setState(() {
       _pegs = [discs, [], []];
@@ -48,49 +99,75 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
       _moves = 0;
       _gameActive = true;
       _showingConfig = false;
+      _shakePeg = -1;
+      _isMoving = false;
     });
   }
 
-  void _onPegTap(int pegIndex) {
-    if (!_gameActive) return;
+  void _onPegTap(int peg) {
+    if (!_gameActive || _isMoving) return;
 
     if (_selectedPeg == null) {
-      // Select source peg — must have discs
-      if (_pegs[pegIndex].isEmpty) return;
+      // Select a source peg
+      if (_pegs[peg].isEmpty) {
+        _shake(peg);
+        return;
+      }
       Haptics.selection();
-      setState(() => _selectedPeg = pegIndex);
+      setState(() => _selectedPeg = peg);
     } else {
-      if (_selectedPeg == pegIndex) {
+      if (_selectedPeg == peg) {
         // Deselect
+        Haptics.selection();
         setState(() => _selectedPeg = null);
         return;
       }
 
       final src = _selectedPeg!;
-      final dst = pegIndex;
-      final srcTop = _pegs[src].last;
-      final dstTop = _pegs[dst].isEmpty ? null : _pegs[dst].last;
+      final topDisc = _pegs[src].last; // smallest value = smallest disc
+      final dstTop = _pegs[peg].isEmpty ? null : _pegs[peg].last;
 
-      if (dstTop != null && dstTop < srcTop) {
-        // Invalid move
+      if (dstTop != null && dstTop < topDisc) {
+        // Invalid: can't place larger on smaller
         Haptics.medium();
+        _shake(peg);
         setState(() => _selectedPeg = null);
         return;
       }
 
-      // Valid move
-      Haptics.light();
-      setState(() {
-        _pegs[dst].add(_pegs[src].removeLast());
-        _moves++;
-        _selectedPeg = null;
-      });
+      _doMove(src, peg);
+    }
+  }
 
-      // Check win: all discs on peg 2 (rightmost = target in RTL)
-      if (_pegs[2].length == _diskCount) {
-        _gameActive = false;
-        _finishGame();
-      }
+  void _shake(int peg) {
+    setState(() => _shakePeg = peg);
+    _shakeCtrl.forward(from: 0).then((_) {
+      if (mounted) setState(() => _shakePeg = -1);
+    });
+  }
+
+  Future<void> _doMove(int src, int dst) async {
+    Haptics.light();
+    setState(() => _isMoving = true);
+
+    // Let the float animation fully render before moving
+    await Future.delayed(_kMoveDuration);
+    if (!mounted) return;
+
+    setState(() {
+      _pegs[dst].add(_pegs[src].removeLast());
+      _moves++;
+      _selectedPeg = null;
+      _isMoving = false;
+    });
+
+    // Win check: peg 2 (last) is the target
+    if (_pegs[2].length == _diskCount) {
+      _gameActive = false;
+      Haptics.success();
+      await Future.delayed(const Duration(milliseconds: 700));
+      if (!mounted) return;
+      _finishGame();
     }
   }
 
@@ -110,9 +187,6 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
     final isNewRecord = best == null || _moves <= best.score;
 
     if (!mounted) return;
-    await Future.delayed(const Duration(milliseconds: 400));
-    if (!mounted) return;
-
     context.pushReplacement(AppRoutes.result, extra: {
       'gameType': GameType.towerOfHanoi,
       'score': _moves.toDouble(),
@@ -121,6 +195,8 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
       'isNewRecord': isNewRecord,
     });
   }
+
+  // ─── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +216,7 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
               child: Center(
                 child: Text(
                   useArabicDigits(context)
-                      ? '${_moves.toArabicDigits()} حركة'
+                      ? '${_moves.toArabicDigits()} ${tr(context, 'حركة', 'moves', '步')}'
                       : '$_moves ${tr(context, 'حركة', 'moves', '步')}',
                   style: AppTypography.labelLarge
                       .copyWith(color: AppColors.towerOfHanoi),
@@ -148,7 +224,8 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+            icon:
+                const Icon(Icons.help_outline, color: AppColors.textSecondary),
             onPressed: () =>
                 GameRulesHelper.showRulesDialog(context, GameType.towerOfHanoi),
           ),
@@ -158,36 +235,51 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
     );
   }
 
+  // ─── Config screen ──────────────────────────────────────────────────────────
+
   Widget _buildConfig(BuildContext context) {
-    final optimalMoves = (1 << _diskCount) - 1; // 2^n - 1
+    final optimal = (1 << _diskCount) - 1;
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.layers, color: AppColors.towerOfHanoi, size: 64),
-            const SizedBox(height: 24),
+            // Animated mini preview
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, anim) =>
+                  ScaleTransition(scale: anim, child: child),
+              child: _MiniTowerPreview(
+                key: ValueKey(_diskCount),
+                diskCount: _diskCount,
+              ),
+            ),
+            const SizedBox(height: 28),
             Text(
               tr(context, 'برج هانو', 'Tower of Hanoi', '汉诺塔'),
               style: AppTypography.headingMedium,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
-              tr(context,
-                  'انقل جميع الأقراص من العمود إلى اليسار',
-                  'Move all discs to the rightmost peg',
-                  '将所有圆盘从左柱移到右柱'),
+              tr(
+                context,
+                'انقل جميع الأقراص إلى العمود الأخير بأقل الحركات',
+                'Move all discs to the last peg in the fewest moves',
+                '用最少步数将所有圆盘移到最后一根柱子',
+              ),
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
+
+            // Disc count selector
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [3, 4, 5].map((n) {
-                final selected = _diskCount == n;
+                final sel = _diskCount == n;
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: GestureDetector(
@@ -196,39 +288,60 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
                       setState(() => _diskCount = n);
                     },
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: 72,
-                      height: 64,
+                      duration: const Duration(milliseconds: 220),
+                      width: 80,
+                      height: 72,
                       decoration: BoxDecoration(
-                        color: selected
-                            ? AppColors.towerOfHanoi.withValues(alpha: 0.15)
-                            : AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(12),
+                        gradient: sel
+                            ? LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  AppColors.towerOfHanoi.withValues(alpha: 0.28),
+                                  AppColors.towerOfHanoi.withValues(alpha: 0.10),
+                                ],
+                              )
+                            : const LinearGradient(
+                                colors: [
+                                  Color(0xFF1C1C28),
+                                  Color(0xFF111118),
+                                ],
+                              ),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: selected
+                          color: sel
                               ? AppColors.towerOfHanoi
                               : AppColors.border,
-                          width: selected ? 1.5 : 0.5,
+                          width: sel ? 1.5 : 0.5,
                         ),
+                        boxShadow: sel
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.towerOfHanoi
+                                      .withValues(alpha: 0.28),
+                                  blurRadius: 14,
+                                )
+                              ]
+                            : null,
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            useArabicDigits(context)
-                                ? n.toArabicDigits()
-                                : '$n',
+                            useArabicDigits(context) ? n.toArabicDigits() : '$n',
                             style: AppTypography.headingMedium.copyWith(
-                                color: selected
-                                    ? AppColors.towerOfHanoi
-                                    : AppColors.textPrimary),
+                              color: sel
+                                  ? AppColors.towerOfHanoi
+                                  : AppColors.textPrimary,
+                            ),
                           ),
                           Text(
                             tr(context, 'أقراص', 'discs', '盘'),
                             style: AppTypography.caption.copyWith(
-                                color: selected
-                                    ? AppColors.towerOfHanoi
-                                    : AppColors.textSecondary),
+                              color: sel
+                                  ? AppColors.towerOfHanoi
+                                  : AppColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -237,12 +350,14 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
                 );
               }).toList(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Text(
               useArabicDigits(context)
-                  ? 'الحد الأدنى: ${optimalMoves.toArabicDigits()} حركة'
-                  : '${tr(context, 'الحد الأدنى: ', 'Optimal: ', '最少：')}$optimalMoves ${tr(context, 'حركة', 'moves', '步')}',
-              style: AppTypography.caption,
+                  ? 'الحد الأدنى: ${optimal.toArabicDigits()} حركة'
+                  : '${tr(context, 'الحد الأدنى: ', 'Optimal: ', '最少：')}$optimal ${tr(context, 'حركة', 'moves', '步')}',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.towerOfHanoi.withValues(alpha: 0.72),
+              ),
             ),
             const SizedBox(height: 40),
             SizedBox(
@@ -258,126 +373,590 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen> {
     );
   }
 
+  // ─── Game screen ────────────────────────────────────────────────────────────
+
   Widget _buildGame(BuildContext context) {
+    final optimal = (1 << _diskCount) - 1;
     return Column(
       children: [
-        // Instructions + optimal moves
+        // Sub-header
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                _selectedPeg != null
-                    ? tr(context, 'اختر العمود الهدف', 'Choose destination peg',
-                        '选择目标柱')
-                    : tr(context, 'اضغط على عمود لاختيار القرص العلوي',
-                        'Tap a peg to select the top disc', '点击柱子选择顶部的圆盘'),
-                style: AppTypography.caption,
-              ),
-              const SizedBox(height: 4),
-              Text(
                 useArabicDigits(context)
-                    ? 'الحد الأدنى: ${((1 << _diskCount) - 1).toArabicDigits()} حركة'
-                    : '${tr(context, 'الحد الأدنى: ', 'Optimal: ', '最少：')}${(1 << _diskCount) - 1} ${tr(context, 'حركة', 'moves', '步')}',
+                    ? 'الأمثل: ${optimal.toArabicDigits()} حركة'
+                    : '${tr(context, 'الأمثل: ', 'Optimal: ', '最少：')}$optimal ${tr(context, 'حركة', 'moves', '步')}',
                 style: AppTypography.caption.copyWith(
-                  color: AppColors.towerOfHanoi.withValues(alpha: 0.6),
+                  color: AppColors.towerOfHanoi.withValues(alpha: 0.65),
+                ),
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: Text(
+                  key: ValueKey(_selectedPeg != null),
+                  _selectedPeg != null
+                      ? tr(context, 'اختر العمود المستهدف ↓',
+                          'Choose destination ↓', '选择目标柱 ↓')
+                      : tr(context, 'اضغط على عمود للاختيار', 'Tap a peg',
+                          '点击柱子选择'),
+                  style: AppTypography.caption.copyWith(
+                    color: _selectedPeg != null
+                        ? AppColors.gold
+                        : AppColors.textSecondary,
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        // Pegs
+
+        // Board
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(3, (pegIdx) {
-                final peg = _pegs[pegIdx];
-                final isSelected = _selectedPeg == pegIdx;
-                final isTarget = pegIdx == 2; // rightmost = target in RTL
-
-                return Expanded(
-                  child: GestureDetector(
-                    onTap: () => _onPegTap(pegIdx),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        // Peg label
-                        Text(
-                          isTarget
-                              ? tr(context, 'الهدف', 'Goal', '目标')
-                              : '',
-                          style: AppTypography.caption.copyWith(
-                              color: AppColors.towerOfHanoi),
-                        ),
-                        const SizedBox(height: 4),
-                        // Discs on peg
-                        ...peg.reversed.map((diskSize) {
-                          final width = 20.0 + diskSize * 16.0;
-                          final isTopOfSelected = isSelected &&
-                              peg.isNotEmpty &&
-                              diskSize == peg.last;
-                          return Container(
-                            width: width,
-                            height: 28,
-                            margin: const EdgeInsets.only(bottom: 4),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: isTopOfSelected
-                                    ? [
-                                        AppColors.gold,
-                                        AppColors.goldMuted,
-                                      ]
-                                    : [
-                                        AppColors.towerOfHanoi
-                                            .withValues(alpha: 0.8),
-                                        AppColors.towerOfHanoi
-                                            .withValues(alpha: 0.5),
-                                      ],
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          );
-                        }),
-                        // Peg pole and base
-                        Container(
-                          width: 6,
-                          height: 40 + _diskCount * 8.0,
-                          color: isSelected
-                              ? AppColors.gold
-                              : AppColors.surfaceElevated,
-                        ),
-                        Container(
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: isTarget
-                                ? AppColors.towerOfHanoi.withValues(alpha: 0.5)
-                                : AppColors.border,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          tr(context,
-                              pegIdx == 0 ? 'ثالث' : pegIdx == 1 ? 'وسط' : 'أول',
-                              pegIdx == 0 ? 'A' : pegIdx == 1 ? 'B' : 'C',
-                              pegIdx == 0 ? 'A' : pegIdx == 1 ? 'B' : 'C'),
-                          style: AppTypography.caption.copyWith(
-                              color: isTarget
-                                  ? AppColors.towerOfHanoi
-                                  : AppColors.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
+            padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
+            child: _HanoiBoard(
+              pegs: _pegs,
+              diskCount: _diskCount,
+              selectedPeg: _selectedPeg,
+              shakePeg: _shakePeg,
+              shakeAnim: _shakeAnim,
+              onPegTap: _onPegTap,
             ),
           ),
         ),
-        const SizedBox(height: 24),
       ],
+    );
+  }
+}
+
+// ─── Board ────────────────────────────────────────────────────────────────────
+
+class _HanoiBoard extends StatelessWidget {
+  final List<List<int>> pegs;
+  final int diskCount;
+  final int? selectedPeg;
+  final int shakePeg;
+  final Animation<double> shakeAnim;
+  final ValueChanged<int> onPegTap;
+
+  const _HanoiBoard({
+    required this.pegs,
+    required this.diskCount,
+    required this.selectedPeg,
+    required this.shakePeg,
+    required this.shakeAnim,
+    required this.onPegTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, cs) {
+      final totalW = cs.maxWidth;
+      final totalH = cs.maxHeight;
+      final pegColW = totalW / 3;
+      // Max disc width within a column, leaving 12px padding each side
+      final maxDiscW = pegColW - 24.0;
+      const minDiscW = 36.0;
+      // Pole height covers all discs + some breathing room above
+      final poleH = min(
+        diskCount * (_kDiscHeight + _kDiscGap) + 44.0,
+        totalH - _kBaseHeight - 40.0,
+      );
+
+      return Stack(
+        children: [
+          // ── Base platform ─────────────────────────────────────────────
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: _kBaseHeight,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF2A2A3E),
+                    Color(0xFF1E1E2C),
+                    Color(0xFF2A2A3E),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(
+                  color: AppColors.towerOfHanoi.withValues(alpha: 0.30),
+                  width: 0.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.towerOfHanoi.withValues(alpha: 0.12),
+                    blurRadius: 18,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Three peg columns ─────────────────────────────────────────
+          ...List.generate(3, (i) {
+            Widget peg = _PegColumn(
+              pegIndex: i,
+              discs: pegs[i],
+              diskCount: diskCount,
+              isSelected: selectedPeg == i,
+              hasSelection: selectedPeg != null,
+              maxDiscW: maxDiscW,
+              minDiscW: minDiscW,
+              poleH: poleH,
+              isTarget: i == 2,
+              onTap: () => onPegTap(i),
+            );
+
+            // Wrap with shake animation if needed
+            if (shakePeg == i) {
+              peg = AnimatedBuilder(
+                animation: shakeAnim,
+                builder: (_, child) => Transform.translate(
+                  offset: Offset(shakeAnim.value, 0),
+                  child: child,
+                ),
+                child: peg,
+              );
+            }
+
+            return Positioned(
+              left: i * pegColW,
+              top: 0,
+              width: pegColW,
+              bottom: _kBaseHeight,
+              child: peg,
+            );
+          }),
+        ],
+      );
+    });
+  }
+}
+
+// ─── Peg Column ───────────────────────────────────────────────────────────────
+
+class _PegColumn extends StatelessWidget {
+  final int pegIndex;
+  final List<int> discs; // [largest, ..., smallest], last = top
+  final int diskCount;
+  final bool isSelected;
+  final bool hasSelection;
+  final double maxDiscW;
+  final double minDiscW;
+  final double poleH;
+  final bool isTarget;
+  final VoidCallback onTap;
+
+  const _PegColumn({
+    required this.pegIndex,
+    required this.discs,
+    required this.diskCount,
+    required this.isSelected,
+    required this.hasSelection,
+    required this.maxDiscW,
+    required this.minDiscW,
+    required this.poleH,
+    required this.isTarget,
+    required this.onTap,
+  });
+
+  double _discW(int size) {
+    if (diskCount <= 1) return maxDiscW;
+    final t = (size - 1) / (diskCount - 1);
+    return minDiscW + t * (maxDiscW - minDiscW);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDropTarget = hasSelection && !isSelected;
+    const accentColor = AppColors.towerOfHanoi;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: LayoutBuilder(builder: (_, cs) {
+        final w = cs.maxWidth;
+        final cx = w / 2; // center x
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // ── Top label / indicator ────────────────────────────────────
+            Positioned(
+              top: 6,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: isDropTarget
+                      // Drop target arrow
+                      ? _LabelChip(
+                          key: const ValueKey('drop'),
+                          icon: Icons.keyboard_arrow_down_rounded,
+                          color: AppColors.gold,
+                          backgroundColor:
+                              AppColors.gold.withValues(alpha: 0.14),
+                          borderColor: AppColors.gold.withValues(alpha: 0.45),
+                        )
+                      : isSelected
+                          // Selected peg
+                          ? _LabelChip(
+                              key: const ValueKey('selected'),
+                              icon: Icons.open_with_rounded,
+                              color: AppColors.gold,
+                              backgroundColor:
+                                  AppColors.gold.withValues(alpha: 0.18),
+                              borderColor:
+                                  AppColors.gold.withValues(alpha: 0.55),
+                            )
+                          : isTarget
+                              // Goal label
+                              ? _TextChip(
+                                  key: const ValueKey('goal'),
+                                  label:
+                                      tr(context, 'هدف', 'GOAL', '目标'),
+                                  color: accentColor,
+                                )
+                              : const SizedBox.shrink(
+                                  key: ValueKey('empty')),
+                ),
+              ),
+            ),
+
+            // ── Peg pole ─────────────────────────────────────────────────
+            Positioned(
+              bottom: 0,
+              left: cx - _kPoleWidth / 2,
+              width: _kPoleWidth,
+              height: poleH,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: isSelected
+                        ? [AppColors.gold, AppColors.goldMuted]
+                        : isTarget
+                            ? [
+                                accentColor.withValues(alpha: 0.80),
+                                accentColor.withValues(alpha: 0.35),
+                              ]
+                            : [
+                                const Color(0xFF3E3E58),
+                                const Color(0xFF222230),
+                              ],
+                  ),
+                  borderRadius: BorderRadius.circular(5),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: AppColors.gold.withValues(alpha: 0.45),
+                            blurRadius: 16,
+                          ),
+                        ]
+                      : isTarget
+                          ? [
+                              BoxShadow(
+                                color: accentColor.withValues(alpha: 0.22),
+                                blurRadius: 10,
+                              ),
+                            ]
+                          : null,
+                ),
+              ),
+            ),
+
+            // ── Discs ─────────────────────────────────────────────────────
+            // discs[0] = bottom/largest, discs[n-1] = top/smallest
+            ...discs.asMap().entries.map((entry) {
+              final stackIdx = entry.key;
+              final size = entry.value;
+              final isTopDisc = stackIdx == discs.length - 1;
+              final isFloating = isSelected && isTopDisc;
+
+              final dw = _discW(size);
+              final baseBottom = stackIdx * (_kDiscHeight + _kDiscGap);
+              final bottom =
+                  isFloating ? baseBottom + _kFloatOffset : baseBottom.toDouble();
+
+              return AnimatedPositioned(
+                key: ValueKey('p${pegIndex}_d$size'),
+                duration: _kAnimDuration,
+                curve: Curves.easeOutCubic,
+                bottom: bottom,
+                left: cx - dw / 2,
+                width: dw,
+                height: _kDiscHeight,
+                child: _DiscWidget(
+                  size: size,
+                  diskCount: diskCount,
+                  isFloating: isFloating,
+                ),
+              );
+            }),
+          ],
+        );
+      }),
+    );
+  }
+}
+
+// ─── Disc Widget ──────────────────────────────────────────────────────────────
+
+class _DiscWidget extends StatelessWidget {
+  final int size;
+  final int diskCount;
+  final bool isFloating;
+
+  const _DiscWidget({
+    required this.size,
+    required this.diskCount,
+    required this.isFloating,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _diskColor(size);
+
+    return AnimatedContainer(
+      duration: _kAnimDuration,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            isFloating ? color : color.withValues(alpha: 0.92),
+            isFloating
+                ? color.withValues(alpha: 0.75)
+                : color.withValues(alpha: 0.60),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isFloating
+              ? AppColors.gold
+              : color.withValues(alpha: 0.60),
+          width: isFloating ? 1.5 : 0.5,
+        ),
+        boxShadow: isFloating
+            ? [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.65),
+                  blurRadius: 20,
+                  spreadRadius: 1,
+                ),
+                BoxShadow(
+                  color: AppColors.gold.withValues(alpha: 0.28),
+                  blurRadius: 10,
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.28),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+      ),
+    );
+  }
+}
+
+// ─── Label Chips ──────────────────────────────────────────────────────────────
+
+class _LabelChip extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final Color backgroundColor;
+  final Color borderColor;
+
+  const _LabelChip({
+    super.key,
+    required this.icon,
+    required this.color,
+    required this.backgroundColor,
+    required this.borderColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor, width: 0.5),
+      ),
+      child: Icon(icon, color: color, size: 14),
+    );
+  }
+}
+
+class _TextChip extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _TextChip({super.key, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.38), width: 0.5),
+      ),
+      child: Text(
+        label,
+        style: AppTypography.caption.copyWith(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Mini Tower Preview (config screen) ──────────────────────────────────────
+
+class _MiniTowerPreview extends StatelessWidget {
+  final int diskCount;
+
+  const _MiniTowerPreview({super.key, required this.diskCount});
+
+  @override
+  Widget build(BuildContext context) {
+    const previewW = 130.0;
+    const discH = 18.0;
+    const discGap = 3.0;
+    const minW = 24.0;
+    const maxW = previewW - 12.0;
+    const poleW = 7.0;
+    const baseH = 12.0;
+
+    final poleHeight = diskCount * (discH + discGap) + 16.0;
+    final totalH = poleHeight + baseH + 8.0;
+
+    return Container(
+      width: previewW,
+      height: totalH,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E0E1C),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.towerOfHanoi.withValues(alpha: 0.25),
+          width: 0.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.towerOfHanoi.withValues(alpha: 0.15),
+            blurRadius: 20,
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Base
+          Positioned(
+            bottom: 8,
+            left: 8,
+            right: 8,
+            child: Container(
+              height: baseH,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.towerOfHanoi.withValues(alpha: 0.22),
+                    AppColors.towerOfHanoi.withValues(alpha: 0.10),
+                    AppColors.towerOfHanoi.withValues(alpha: 0.22),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: AppColors.towerOfHanoi.withValues(alpha: 0.30),
+                  width: 0.5,
+                ),
+              ),
+            ),
+          ),
+          // Pole
+          Positioned(
+            bottom: 8 + baseH,
+            left: previewW / 2 - poleW / 2,
+            width: poleW,
+            height: poleHeight,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppColors.towerOfHanoi.withValues(alpha: 0.80),
+                    AppColors.towerOfHanoi.withValues(alpha: 0.35),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(4),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.towerOfHanoi.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Discs
+          ...List.generate(diskCount, (i) {
+            // i=0 → bottom/largest, i=diskCount-1 → top/smallest
+            final size = diskCount - i; // size: N down to 1
+            final t = diskCount <= 1
+                ? 1.0
+                : (size - 1) / (diskCount - 1).toDouble();
+            final dw = minW + t * (maxW - minW);
+            final color = _diskColor(size);
+            final bottom = 8.0 + baseH + i * (discH + discGap);
+
+            return Positioned(
+              bottom: bottom,
+              left: previewW / 2 - dw / 2,
+              width: dw,
+              height: discH,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      color.withValues(alpha: 0.92),
+                      color.withValues(alpha: 0.65),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(7),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 }

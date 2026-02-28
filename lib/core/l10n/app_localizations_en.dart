@@ -287,4 +287,142 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get allGames => 'All Games';
+
+  @override
+  String dashboardTracksReady(int played, int total) {
+    return '$played/$total tracks ready';
+  }
+
+  @override
+  String featuredMixSemantics(Object gameName) {
+    return 'Featured mix: $gameName';
+  }
+
+  @override
+  String get featuredMixChip => 'FEATURED MIX';
+
+  @override
+  String get featuredMixTitle => 'Tonight\'s Cognitive Set';
+
+  @override
+  String featuredMixSubtitle(Object gameName) {
+    return 'Start with $gameName and keep the rhythm.';
+  }
+
+  @override
+  String get featuredMixStart => 'Start Mix';
+
+  @override
+  String featuredMixSessions(int count) {
+    return '$count sessions total';
+  }
+
+  @override
+  String get featuredContinueTitle => 'Continue';
+
+  @override
+  String featuredContinueSubtitle(Object gameName, Object score) {
+    return '$gameName · last $score';
+  }
+
+  @override
+  String get featuredNoHistory => 'No previous session yet';
+
+  @override
+  String get featuredRecentTrend => 'Recent trend';
+
+  @override
+  String get trendImproving => 'Improving';
+
+  @override
+  String get trendDeclining => 'Declining';
+
+  @override
+  String get trendStable => 'Stable';
+
+  @override
+  String get modeFocus => 'Focus';
+
+  @override
+  String get modeMemory => 'Memory';
+
+  @override
+  String get modeSpeed => 'Speed';
+
+  @override
+  String get modeLogic => 'Logic';
+
+  @override
+  String get modeChallenge => 'Challenge';
+
+  @override
+  String gameCardSemantics(Object name, Object tagline) {
+    return '$name: $tagline';
+  }
+
+  @override
+  String get dashboardTapToPlay => 'Tap to play';
+
+  @override
+  String get dashboardNewLabel => 'NEW';
+
+  @override
+  String get gameCategoryVisualScan => 'Visual Scan';
+
+  @override
+  String get gameCategoryReflex => 'Reflex';
+
+  @override
+  String get gameCategoryMemory => 'Memory';
+
+  @override
+  String get gameCategoryFocus => 'Focus';
+
+  @override
+  String get gameCategoryVisualMem => 'Visual Memory';
+
+  @override
+  String get gameCategorySequence => 'Sequence';
+
+  @override
+  String get gameCategoryCognition => 'Cognition';
+
+  @override
+  String get gameCategoryReverse => 'Reverse';
+
+  @override
+  String get gameCategorySpatial => 'Spatial';
+
+  @override
+  String get gameCategoryStrategy => 'Strategy';
+
+  @override
+  String get taglineSchulte => 'Find numbers with steady speed';
+
+  @override
+  String get taglineReaction => 'React to signal changes instantly';
+
+  @override
+  String get taglineNumberMemory => 'Hold the sequence, replay precisely';
+
+  @override
+  String get taglineStroop => 'Name the ink, ignore the word';
+
+  @override
+  String get taglineVisual => 'Memorize flashed tiles and recall';
+
+  @override
+  String get taglineSequence => 'Follow the route without breaking order';
+
+  @override
+  String get taglineMatrix => 'Track positions under moving load';
+
+  @override
+  String get taglineReverse => 'Reverse the digits under pressure';
+
+  @override
+  String get taglineSliding => 'Slide tiles toward perfect order';
+
+  @override
+  String get taglineHanoi => 'Plan minimum moves across pegs';
 }

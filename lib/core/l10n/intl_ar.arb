@@ -114,5 +114,92 @@
 
   "noDataYet": "لا توجد بيانات بعد — العب أولاً!",
   "recentSessions": "الجلسات الأخيرة",
-  "allGames": "جميع الألعاب"
+  "allGames": "جميع الألعاب",
+
+  "dashboardTracksReady": "{played}/{total} تمارين جاهزة",
+  "@dashboardTracksReady": {
+    "placeholders": {
+      "played": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+
+  "featuredMixSemantics": "المزيج المميز: {gameName}",
+  "@featuredMixSemantics": {
+    "placeholders": {
+      "gameName": {}
+    }
+  },
+  "featuredMixChip": "المزيج المميز",
+  "featuredMixTitle": "جلسة تدريب اليوم",
+  "featuredMixSubtitle": "ابدأ بـ {gameName} وادخل الإيقاع.",
+  "@featuredMixSubtitle": {
+    "placeholders": {
+      "gameName": {}
+    }
+  },
+  "featuredMixStart": "ابدأ الآن",
+  "featuredMixSessions": "{count} جلسة إجمالاً",
+  "@featuredMixSessions": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "featuredContinueTitle": "أكمل آخر تدريب",
+  "featuredContinueSubtitle": "{gameName} · آخر نتيجة {score}",
+  "@featuredContinueSubtitle": {
+    "placeholders": {
+      "gameName": {},
+      "score": {}
+    }
+  },
+  "featuredNoHistory": "لا يوجد سجل سابق",
+  "featuredRecentTrend": "اتجاه النتائج مؤخرًا",
+  "trendImproving": "يتحسن",
+  "trendDeclining": "يتراجع",
+  "trendStable": "مستقر",
+
+  "modeFocus": "تركيز",
+  "modeMemory": "ذاكرة",
+  "modeSpeed": "سرعة",
+  "modeLogic": "منطق",
+  "modeChallenge": "تحدي",
+
+  "gameCardSemantics": "{name}: {tagline}",
+  "@gameCardSemantics": {
+    "placeholders": {
+      "name": {},
+      "tagline": {}
+    }
+  },
+  "dashboardTapToPlay": "اضغط للعب",
+  "dashboardNewLabel": "جديد",
+
+  "gameCategoryVisualScan": "مسح بصري",
+  "gameCategoryReflex": "رد فعل",
+  "gameCategoryMemory": "ذاكرة",
+  "gameCategoryFocus": "تركيز",
+  "gameCategoryVisualMem": "ذاكرة بصرية",
+  "gameCategorySequence": "تسلسل",
+  "gameCategoryCognition": "إدراك",
+  "gameCategoryReverse": "عكسي",
+  "gameCategorySpatial": "مكاني",
+  "gameCategoryStrategy": "استراتيجية",
+
+  "taglineSchulte": "ابحث عن الأرقام بالتسلسل وبثبات",
+  "taglineReaction": "استجب لتغير الإشارة فورًا",
+  "taglineNumberMemory": "احفظ الأرقام ثم أعدها بدقة",
+  "taglineStroop": "اختر لون الخط وتجاهل الكلمة",
+  "taglineVisual": "تذكر المربعات المضيئة وحددها",
+  "taglineSequence": "اتبع التسلسل دون كسر الترتيب",
+  "taglineMatrix": "تتبع المواقع تحت ضغط بصري",
+  "taglineReverse": "أدخل الأرقام بالترتيب العكسي بسرعة",
+  "taglineSliding": "حرّك القطع حتى يكتمل الترتيب",
+  "taglineHanoi": "خطط لأقل عدد من النقلات"
 }

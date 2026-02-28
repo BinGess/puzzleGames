@@ -112,5 +112,92 @@
 
   "noDataYet": "No data yet — play a game first!",
   "recentSessions": "Recent Sessions",
-  "allGames": "All Games"
+  "allGames": "All Games",
+
+  "dashboardTracksReady": "{played}/{total} tracks ready",
+  "@dashboardTracksReady": {
+    "placeholders": {
+      "played": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+
+  "featuredMixSemantics": "Featured mix: {gameName}",
+  "@featuredMixSemantics": {
+    "placeholders": {
+      "gameName": {}
+    }
+  },
+  "featuredMixChip": "FEATURED MIX",
+  "featuredMixTitle": "Tonight's Cognitive Set",
+  "featuredMixSubtitle": "Start with {gameName} and keep the rhythm.",
+  "@featuredMixSubtitle": {
+    "placeholders": {
+      "gameName": {}
+    }
+  },
+  "featuredMixStart": "Start Mix",
+  "featuredMixSessions": "{count} sessions total",
+  "@featuredMixSessions": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "featuredContinueTitle": "Continue",
+  "featuredContinueSubtitle": "{gameName} · last {score}",
+  "@featuredContinueSubtitle": {
+    "placeholders": {
+      "gameName": {},
+      "score": {}
+    }
+  },
+  "featuredNoHistory": "No previous session yet",
+  "featuredRecentTrend": "Recent trend",
+  "trendImproving": "Improving",
+  "trendDeclining": "Declining",
+  "trendStable": "Stable",
+
+  "modeFocus": "Focus",
+  "modeMemory": "Memory",
+  "modeSpeed": "Speed",
+  "modeLogic": "Logic",
+  "modeChallenge": "Challenge",
+
+  "gameCardSemantics": "{name}: {tagline}",
+  "@gameCardSemantics": {
+    "placeholders": {
+      "name": {},
+      "tagline": {}
+    }
+  },
+  "dashboardTapToPlay": "Tap to play",
+  "dashboardNewLabel": "NEW",
+
+  "gameCategoryVisualScan": "Visual Scan",
+  "gameCategoryReflex": "Reflex",
+  "gameCategoryMemory": "Memory",
+  "gameCategoryFocus": "Focus",
+  "gameCategoryVisualMem": "Visual Memory",
+  "gameCategorySequence": "Sequence",
+  "gameCategoryCognition": "Cognition",
+  "gameCategoryReverse": "Reverse",
+  "gameCategorySpatial": "Spatial",
+  "gameCategoryStrategy": "Strategy",
+
+  "taglineSchulte": "Find numbers with steady speed",
+  "taglineReaction": "React to signal changes instantly",
+  "taglineNumberMemory": "Hold the sequence, replay precisely",
+  "taglineStroop": "Name the ink, ignore the word",
+  "taglineVisual": "Memorize flashed tiles and recall",
+  "taglineSequence": "Follow the route without breaking order",
+  "taglineMatrix": "Track positions under moving load",
+  "taglineReverse": "Reverse the digits under pressure",
+  "taglineSliding": "Slide tiles toward perfect order",
+  "taglineHanoi": "Plan minimum moves across pegs"
 }

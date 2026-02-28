@@ -638,6 +638,258 @@ abstract class AppL10n {
   /// In ar, this message translates to:
   /// **'جميع الألعاب'**
   String get allGames;
+
+  /// No description provided for @dashboardTracksReady.
+  ///
+  /// In ar, this message translates to:
+  /// **'{played}/{total} تمارين جاهزة'**
+  String dashboardTracksReady(int played, int total);
+
+  /// No description provided for @featuredMixSemantics.
+  ///
+  /// In ar, this message translates to:
+  /// **'المزيج المميز: {gameName}'**
+  String featuredMixSemantics(Object gameName);
+
+  /// No description provided for @featuredMixChip.
+  ///
+  /// In ar, this message translates to:
+  /// **'المزيج المميز'**
+  String get featuredMixChip;
+
+  /// No description provided for @featuredMixTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'جلسة تدريب اليوم'**
+  String get featuredMixTitle;
+
+  /// No description provided for @featuredMixSubtitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابدأ بـ {gameName} وادخل الإيقاع.'**
+  String featuredMixSubtitle(Object gameName);
+
+  /// No description provided for @featuredMixStart.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابدأ الآن'**
+  String get featuredMixStart;
+
+  /// No description provided for @featuredMixSessions.
+  ///
+  /// In ar, this message translates to:
+  /// **'{count} جلسة إجمالاً'**
+  String featuredMixSessions(int count);
+
+  /// No description provided for @featuredContinueTitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'أكمل آخر تدريب'**
+  String get featuredContinueTitle;
+
+  /// No description provided for @featuredContinueSubtitle.
+  ///
+  /// In ar, this message translates to:
+  /// **'{gameName} · آخر نتيجة {score}'**
+  String featuredContinueSubtitle(Object gameName, Object score);
+
+  /// No description provided for @featuredNoHistory.
+  ///
+  /// In ar, this message translates to:
+  /// **'لا يوجد سجل سابق'**
+  String get featuredNoHistory;
+
+  /// No description provided for @featuredRecentTrend.
+  ///
+  /// In ar, this message translates to:
+  /// **'اتجاه النتائج مؤخرًا'**
+  String get featuredRecentTrend;
+
+  /// No description provided for @trendImproving.
+  ///
+  /// In ar, this message translates to:
+  /// **'يتحسن'**
+  String get trendImproving;
+
+  /// No description provided for @trendDeclining.
+  ///
+  /// In ar, this message translates to:
+  /// **'يتراجع'**
+  String get trendDeclining;
+
+  /// No description provided for @trendStable.
+  ///
+  /// In ar, this message translates to:
+  /// **'مستقر'**
+  String get trendStable;
+
+  /// No description provided for @modeFocus.
+  ///
+  /// In ar, this message translates to:
+  /// **'تركيز'**
+  String get modeFocus;
+
+  /// No description provided for @modeMemory.
+  ///
+  /// In ar, this message translates to:
+  /// **'ذاكرة'**
+  String get modeMemory;
+
+  /// No description provided for @modeSpeed.
+  ///
+  /// In ar, this message translates to:
+  /// **'سرعة'**
+  String get modeSpeed;
+
+  /// No description provided for @modeLogic.
+  ///
+  /// In ar, this message translates to:
+  /// **'منطق'**
+  String get modeLogic;
+
+  /// No description provided for @modeChallenge.
+  ///
+  /// In ar, this message translates to:
+  /// **'تحدي'**
+  String get modeChallenge;
+
+  /// No description provided for @gameCardSemantics.
+  ///
+  /// In ar, this message translates to:
+  /// **'{name}: {tagline}'**
+  String gameCardSemantics(Object name, Object tagline);
+
+  /// No description provided for @dashboardTapToPlay.
+  ///
+  /// In ar, this message translates to:
+  /// **'اضغط للعب'**
+  String get dashboardTapToPlay;
+
+  /// No description provided for @dashboardNewLabel.
+  ///
+  /// In ar, this message translates to:
+  /// **'جديد'**
+  String get dashboardNewLabel;
+
+  /// No description provided for @gameCategoryVisualScan.
+  ///
+  /// In ar, this message translates to:
+  /// **'مسح بصري'**
+  String get gameCategoryVisualScan;
+
+  /// No description provided for @gameCategoryReflex.
+  ///
+  /// In ar, this message translates to:
+  /// **'رد فعل'**
+  String get gameCategoryReflex;
+
+  /// No description provided for @gameCategoryMemory.
+  ///
+  /// In ar, this message translates to:
+  /// **'ذاكرة'**
+  String get gameCategoryMemory;
+
+  /// No description provided for @gameCategoryFocus.
+  ///
+  /// In ar, this message translates to:
+  /// **'تركيز'**
+  String get gameCategoryFocus;
+
+  /// No description provided for @gameCategoryVisualMem.
+  ///
+  /// In ar, this message translates to:
+  /// **'ذاكرة بصرية'**
+  String get gameCategoryVisualMem;
+
+  /// No description provided for @gameCategorySequence.
+  ///
+  /// In ar, this message translates to:
+  /// **'تسلسل'**
+  String get gameCategorySequence;
+
+  /// No description provided for @gameCategoryCognition.
+  ///
+  /// In ar, this message translates to:
+  /// **'إدراك'**
+  String get gameCategoryCognition;
+
+  /// No description provided for @gameCategoryReverse.
+  ///
+  /// In ar, this message translates to:
+  /// **'عكسي'**
+  String get gameCategoryReverse;
+
+  /// No description provided for @gameCategorySpatial.
+  ///
+  /// In ar, this message translates to:
+  /// **'مكاني'**
+  String get gameCategorySpatial;
+
+  /// No description provided for @gameCategoryStrategy.
+  ///
+  /// In ar, this message translates to:
+  /// **'استراتيجية'**
+  String get gameCategoryStrategy;
+
+  /// No description provided for @taglineSchulte.
+  ///
+  /// In ar, this message translates to:
+  /// **'ابحث عن الأرقام بالتسلسل وبثبات'**
+  String get taglineSchulte;
+
+  /// No description provided for @taglineReaction.
+  ///
+  /// In ar, this message translates to:
+  /// **'استجب لتغير الإشارة فورًا'**
+  String get taglineReaction;
+
+  /// No description provided for @taglineNumberMemory.
+  ///
+  /// In ar, this message translates to:
+  /// **'احفظ الأرقام ثم أعدها بدقة'**
+  String get taglineNumberMemory;
+
+  /// No description provided for @taglineStroop.
+  ///
+  /// In ar, this message translates to:
+  /// **'اختر لون الخط وتجاهل الكلمة'**
+  String get taglineStroop;
+
+  /// No description provided for @taglineVisual.
+  ///
+  /// In ar, this message translates to:
+  /// **'تذكر المربعات المضيئة وحددها'**
+  String get taglineVisual;
+
+  /// No description provided for @taglineSequence.
+  ///
+  /// In ar, this message translates to:
+  /// **'اتبع التسلسل دون كسر الترتيب'**
+  String get taglineSequence;
+
+  /// No description provided for @taglineMatrix.
+  ///
+  /// In ar, this message translates to:
+  /// **'تتبع المواقع تحت ضغط بصري'**
+  String get taglineMatrix;
+
+  /// No description provided for @taglineReverse.
+  ///
+  /// In ar, this message translates to:
+  /// **'أدخل الأرقام بالترتيب العكسي بسرعة'**
+  String get taglineReverse;
+
+  /// No description provided for @taglineSliding.
+  ///
+  /// In ar, this message translates to:
+  /// **'حرّك القطع حتى يكتمل الترتيب'**
+  String get taglineSliding;
+
+  /// No description provided for @taglineHanoi.
+  ///
+  /// In ar, this message translates to:
+  /// **'خطط لأقل عدد من النقلات'**
+  String get taglineHanoi;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {
