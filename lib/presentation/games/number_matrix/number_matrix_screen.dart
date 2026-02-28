@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +14,10 @@ import '../../../domain/enums/game_type.dart';
 import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
+// ─── Phase ───────────────────────────────────────────────────────────────────
+enum _ChimpPhase { config, showing, recalling, levelSuccess }
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
 class NumberMatrixScreen extends ConsumerStatefulWidget {
   const NumberMatrixScreen({super.key});
 
@@ -21,21 +26,30 @@ class NumberMatrixScreen extends ConsumerStatefulWidget {
       _NumberMatrixScreenState();
 }
 
-class _NumberMatrixScreenState
-    extends ConsumerState<NumberMatrixScreen> {
-  int _gridSize = 5;
-  int get _total => _gridSize * _gridSize;
+class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
+  // 4×4 = 16-cell grid
+  static const _cols = 4;
+  static const _rows = 4;
+  static const _total = _cols * _rows; // 16
 
-  List<int?> _cells = []; // null = tapped/cleared
-  int _nextTarget = 1;
-  bool _gameActive = false;
-  bool _showingConfig = true;
+  final _rng = Random();
+  _ChimpPhase _phase = _ChimpPhase.config;
 
-  final Stopwatch _stopwatch = Stopwatch();
-  Timer? _uiTimer;
-  String _elapsedDisplay = '0.0s';
-  int? _flashIndex;
+  // Numbers placed in grid (null = empty cell)
+  List<int?> _grid = List.filled(_total, null);
+  // Whether each cell has been correctly tapped
+  List<bool> _done = List.filled(_total, false);
+
+  int _level = 4;        // how many numbers in current round
+  int _maxCompleted = 0; // highest level fully recalled (= score)
+
+  int _nextExpected = 1; // next number user must tap
+
+  // Flash feedback
+  int? _flashCell;
   bool _flashCorrect = false;
+
+  Timer? _successTimer;
 
   @override
   void initState() {
@@ -48,115 +62,136 @@ class _NumberMatrixScreenState
 
   @override
   void dispose() {
-    _uiTimer?.cancel();
-    _stopwatch.stop();
+    _successTimer?.cancel();
     super.dispose();
   }
 
+  // ─── Game logic ────────────────────────────────────────────────────────────
+
   void _startGame() {
-    final nums = List.generate(_total, (i) => i + 1)..shuffle();
-    _uiTimer?.cancel();
+    _level = 4;
+    _maxCompleted = 0;
+    _startRound();
+  }
+
+  void _startRound() {
+    // Pick _level random positions and assign numbers 1.._level
+    final positions = List.generate(_total, (i) => i)..shuffle(_rng);
+    final newGrid = List<int?>.filled(_total, null);
+    for (int i = 0; i < _level; i++) {
+      newGrid[positions[i]] = i + 1;
+    }
     setState(() {
-      _cells = nums;
-      _nextTarget = 1;
-      _gameActive = true;
-      _showingConfig = false;
-      _elapsedDisplay = '0.0s';
-      _flashIndex = null;
-      _flashCorrect = false;
-    });
-    _stopwatch.reset();
-    _stopwatch.start();
-    _uiTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      if (mounted && _gameActive) {
-        setState(() {
-          _elapsedDisplay =
-              '${(_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1)}s';
-        });
-      }
+      _grid = newGrid;
+      _done = List.filled(_total, false);
+      _nextExpected = 1;
+      _flashCell = null;
+      _phase = _ChimpPhase.showing;
     });
   }
 
   void _onCellTap(int index) {
-    if (!_gameActive) return;
-    final num = _cells[index];
-    if (num == null) return; // already tapped
+    final val = _grid[index];
 
-    if (num == _nextTarget) {
+    // ── Showing phase: only clicking "1" advances ──
+    if (_phase == _ChimpPhase.showing) {
+      if (val == 1) {
+        Haptics.light();
+        setState(() {
+          _done[index] = true;
+          _nextExpected = 2;
+          _flashCell = index;
+          _flashCorrect = true;
+          _phase = _ChimpPhase.recalling;
+        });
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) setState(() => _flashCell = null);
+        });
+      } else {
+        // Wrong first tap — flash the cell red as feedback
+        if (val != null) {
+          Haptics.medium();
+          setState(() {
+            _flashCell = index;
+            _flashCorrect = false;
+          });
+          Future.delayed(const Duration(milliseconds: 250), () {
+            if (mounted) setState(() => _flashCell = null);
+          });
+        }
+      }
+      return;
+    }
+
+    // ── Recalling phase ──
+    if (_phase != _ChimpPhase.recalling) return;
+    if (_done[index]) return; // already correctly tapped
+
+    if (val == _nextExpected) {
+      // Correct
       Haptics.light();
       setState(() {
-        _cells[index] = null; // clear
-        _nextTarget++;
-        _flashIndex = index;
+        _done[index] = true;
+        _nextExpected++;
+        _flashCell = index;
         _flashCorrect = true;
       });
       Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted) setState(() => _flashIndex = null);
+        if (!mounted) return;
+        setState(() => _flashCell = null);
+        if (_nextExpected > _level) {
+          // Level complete!
+          _maxCompleted = _level;
+          setState(() => _phase = _ChimpPhase.levelSuccess);
+          _successTimer = Timer(const Duration(milliseconds: 900), () {
+            if (mounted) {
+              _level++;
+              _startRound();
+            }
+          });
+        }
       });
-
-      if (_nextTarget > _total) {
-        _finishGame();
-      }
     } else {
+      // Wrong
       Haptics.medium();
-      // Wrong tap — no penalty, but show clear feedback + next target hint
       setState(() {
-        _flashIndex = index;
+        _flashCell = index;
         _flashCorrect = false;
       });
-      final expected = useArabicDigits(context)
-          ? _nextTarget.toArabicDigits()
-          : '$_nextTarget';
-      final hint = tr(
-        context,
-        'الرقم المطلوب الآن: $expected',
-        'Current target: $expected',
-        '当前目标：$expected',
-      );
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(hint),
-            duration: const Duration(milliseconds: 700),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted) setState(() => _flashIndex = null);
+      Future.delayed(const Duration(milliseconds: 700), () {
+        if (mounted) _finishGame();
       });
     }
   }
 
   Future<void> _finishGame() async {
-    _stopwatch.stop();
-    _uiTimer?.cancel();
-    setState(() => _gameActive = false);
-
-    final elapsedMs = _stopwatch.elapsedMilliseconds.toDouble();
+    _successTimer?.cancel();
+    final score = _maxCompleted.toDouble();
     final record = ScoreRecord(
       gameId: GameType.numberMatrix.id,
-      score: elapsedMs,
+      score: score,
       timestamp: DateTime.now(),
-      difficulty: _gridSize - 2,
-      metadata: {'gridSize': _gridSize},
+      difficulty: (_level - 4).clamp(0, 10),
+      metadata: {'maxCompleted': _maxCompleted, 'failedAt': _level},
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
     await ref.read(abilityProvider.notifier).recompute();
 
     final best = ref.read(bestScoreProvider(GameType.numberMatrix.id));
-    final isNewRecord = best == null || elapsedMs <= best.score;
+    final isNewRecord = best == null || score >= best.score;
 
     if (!mounted) return;
     context.pushReplacement(AppRoutes.result, extra: {
       'gameType': GameType.numberMatrix,
-      'score': elapsedMs,
-      'metric': 'time',
-      'lowerIsBetter': true,
+      'score': score,
+      'metric': 'length',
+      'lowerIsBetter': false,
       'isNewRecord': isNewRecord,
     });
   }
+
+  // ─── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -166,34 +201,40 @@ class _NumberMatrixScreenState
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          tr(context, 'مصفوفة الأرقام', 'Number Matrix', '数字矩阵'),
+          tr(context, 'اختبار الشمبانزي', 'Chimp Test', '猩猩测试'),
           style: AppTypography.headingMedium,
         ),
         actions: [
-          if (_gameActive)
+          if (_phase != _ChimpPhase.config)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Center(
                 child: Text(
-                  _elapsedDisplay,
-                  style: AppTypography.labelLarge.copyWith(
-                    color: AppColors.numberMatrix,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                  useArabicDigits(context)
+                      ? 'مستوى ${_level.toArabicDigits()}'
+                      : 'Level $_level',
+                  style: AppTypography.labelLarge
+                      .copyWith(color: AppColors.numberMatrix),
                 ),
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
-            onPressed: () =>
-                GameRulesHelper.showRulesDialog(context, GameType.numberMatrix),
+            icon: const Icon(
+                Icons.help_outline, color: AppColors.textSecondary),
+            onPressed: () => GameRulesHelper.showRulesDialog(
+                context, GameType.numberMatrix),
           ),
         ],
       ),
-      body: _showingConfig ? _buildConfig(context) : _buildGrid(context),
+      body: switch (_phase) {
+        _ChimpPhase.config => _buildConfig(context),
+        _ChimpPhase.levelSuccess => _buildLevelSuccess(context),
+        _ => _buildGame(context),
+      },
     );
   }
 
+  // ── Config ────────────────────────────────────────────────────────────────
   Widget _buildConfig(BuildContext context) {
     return Center(
       child: Padding(
@@ -201,60 +242,27 @@ class _NumberMatrixScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.touch_app, color: AppColors.numberMatrix, size: 64),
+            const Icon(Icons.psychology,
+                color: AppColors.numberMatrix, size: 64),
             const SizedBox(height: 24),
             Text(
-              tr(context, 'مصفوفة الأرقام', 'Number Matrix', '数字矩阵'),
+              tr(context, 'اختبار الشمبانزي', 'Chimp Test', '猩猩测试'),
               style: AppTypography.headingMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              tr(context,
-                  'اضغط الأرقام بالترتيب. فقط الرقم المطلوب يختفي',
-                  'Tap numbers in order. Only the current target will clear',
-                  '按顺序点击数字，只有当前目标会消失'),
+              tr(
+                context,
+                'احفظ مواضع الأرقام — اضغط ١ أولاً، ثم تذكّر البقية!',
+                'Memorize positions — tap ١ first, then recall the rest!',
+                '记住位置 — 先点击１，再凭记忆完成！',
+              ),
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _MatrixSizeBtn(
-                  label: tr(context, '٣×٣', '3×3', '3×3'),
-                  sublabel: tr(context, 'سهل', 'Easy', '简单'),
-                  selected: _gridSize == 3,
-                  color: AppColors.numberMatrix,
-                  onTap: () => setState(() => _gridSize = 3),
-                ),
-                const SizedBox(width: 12),
-                _MatrixSizeBtn(
-                  label: tr(context, '٤×٤', '4×4', '4×4'),
-                  sublabel: tr(context, 'متوسط', 'Medium', '中等'),
-                  selected: _gridSize == 4,
-                  color: AppColors.numberMatrix,
-                  onTap: () => setState(() => _gridSize = 4),
-                ),
-                const SizedBox(width: 12),
-                _MatrixSizeBtn(
-                  label: tr(context, '٥×٥', '5×5', '5×5'),
-                  sublabel: tr(context, 'صعب', 'Hard', '困难'),
-                  selected: _gridSize == 5,
-                  color: AppColors.numberMatrix,
-                  onTap: () => setState(() => _gridSize = 5),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              useArabicDigits(context)
-                  ? '${_total.toArabicDigits()} رقم'
-                  : '$_total ${tr(context, 'رقم', 'numbers', '个数字')}',
-              style: AppTypography.caption,
-            ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 48),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -268,79 +276,79 @@ class _NumberMatrixScreenState
     );
   }
 
-  Widget _buildGrid(BuildContext context) {
+  // ── Level success overlay ─────────────────────────────────────────────────
+  Widget _buildLevelSuccess(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.check_circle_outline,
+              color: AppColors.numberMatrix, size: 72),
+          const SizedBox(height: 16),
+          Text(
+            tr(context, 'ممتاز!', 'Excellent!', '完美！'),
+            style: AppTypography.headingMedium
+                .copyWith(color: AppColors.numberMatrix),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            useArabicDigits(context)
+                ? 'المستوى ${_level.toArabicDigits()} اكتمل ✓'
+                : 'Level $_level complete ✓',
+            style: AppTypography.bodyMedium
+                .copyWith(color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Active game grid ──────────────────────────────────────────────────────
+  Widget _buildGame(BuildContext context) {
+    final isShowing = _phase == _ChimpPhase.showing;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              tr(context, 'اضغط: ', 'Tap: ', '点击: ') +
-                  (useArabicDigits(context)
-                      ? _nextTarget.toArabicDigits()
-                      : '$_nextTarget'),
-              style: AppTypography.labelMedium
-                  .copyWith(color: AppColors.textSecondary),
+            // Instruction hint
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Text(
+                key: ValueKey(isShowing),
+                isShowing
+                    ? tr(context, 'اضغط على ١ للبدء',
+                        'Tap ١ to begin', '点击 １ 开始')
+                    : tr(context, 'تذكّر وأكمل الترتيب',
+                        'Recall the order', '凭记忆完成顺序'),
+                style: AppTypography.labelMedium
+                    .copyWith(color: AppColors.textSecondary),
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
+            // Grid
             AspectRatio(
-              aspectRatio: 1,
+              aspectRatio: _cols / _rows,
               child: GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: _gridSize,
-                  crossAxisSpacing: 6,
-                  mainAxisSpacing: 6,
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: _cols,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
                 ),
                 itemCount: _total,
-                itemBuilder: (ctx, i) {
-                  final num = _cells[i];
-                  final isFlash = _flashIndex == i;
-                  final isEmpty = num == null;
-
-                  return GestureDetector(
-                    onTap: isEmpty ? null : () => _onCellTap(i),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      decoration: BoxDecoration(
-                        color: isEmpty
-                            ? AppColors.surface
-                            : isFlash
-                                ? (_flashCorrect
-                                    ? AppColors.numberMatrix.withValues(alpha: 0.3)
-                                    : AppColors.error.withValues(alpha: 0.25))
-                                : const Color(0xFF1A1A26),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isEmpty
-                              ? AppColors.border.withValues(alpha: 0.3)
-                              : isFlash
-                                  ? (_flashCorrect
-                                      ? AppColors.numberMatrix
-                                      : AppColors.error)
-                                  : AppColors.border,
-                          width: isFlash ? 1.4 : 0.5,
-                        ),
-                      ),
-                      child: isEmpty
-                          ? null
-                          : Center(
-                              child: Text(
-                                useArabicDigits(context)
-                                    ? num.toArabicDigits()
-                                    : '$num',
-                                style: AppTypography.bodyMedium.copyWith(
-                                  color: isFlash
-                                      ? AppColors.numberMatrix
-                                      : AppColors.textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                    ),
-                  );
-                },
+                itemBuilder: (_, i) => _ChimpCell(
+                  value: _grid[i],
+                  isDone: _done[i],
+                  isFlashing: _flashCell == i,
+                  flashCorrect: _flashCorrect,
+                  isShowingPhase: isShowing,
+                  useArabic: useArabicDigits(context),
+                  accentColor: AppColors.numberMatrix,
+                  onTap: () => _onCellTap(i),
+                ),
               ),
             ),
           ],
@@ -350,59 +358,110 @@ class _NumberMatrixScreenState
   }
 }
 
-class _MatrixSizeBtn extends StatelessWidget {
-  final String label;
-  final String sublabel;
-  final bool selected;
-  final Color color;
+// ─── Chimp Cell Widget ────────────────────────────────────────────────────────
+class _ChimpCell extends StatelessWidget {
+  final int? value;
+  final bool isDone;
+  final bool isFlashing;
+  final bool flashCorrect;
+  final bool isShowingPhase;
+  final bool useArabic;
+  final Color accentColor;
   final VoidCallback onTap;
 
-  const _MatrixSizeBtn({
-    required this.label,
-    required this.sublabel,
-    required this.selected,
-    required this.color,
+  const _ChimpCell({
+    required this.value,
+    required this.isDone,
+    required this.isFlashing,
+    required this.flashCorrect,
+    required this.isShowingPhase,
+    required this.useArabic,
+    required this.accentColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isEmpty = value == null;
+    final flashColor = flashCorrect ? accentColor : AppColors.error;
+
+    // ── Colors ──
+    final Color bgColor;
+    final Color borderColor;
+    final double borderWidth;
+
+    if (isFlashing) {
+      bgColor = flashColor.withValues(alpha: 0.3);
+      borderColor = flashColor;
+      borderWidth = 1.5;
+    } else if (isDone) {
+      // Correctly tapped cell — subtle gold
+      bgColor = accentColor.withValues(alpha: 0.12);
+      borderColor = accentColor.withValues(alpha: 0.25);
+      borderWidth = 0.5;
+    } else if (isEmpty) {
+      // Never had a number
+      bgColor = AppColors.surface.withValues(alpha: 0.4);
+      borderColor = AppColors.border.withValues(alpha: 0.2);
+      borderWidth = 0.5;
+    } else if (isShowingPhase) {
+      // Has a number, visible
+      bgColor = const Color(0xFF1A1A26);
+      borderColor = AppColors.border;
+      borderWidth = 0.5;
+    } else {
+      // Recalling phase — number hidden
+      bgColor = const Color(0xFF181824);
+      borderColor = AppColors.border.withValues(alpha: 0.5);
+      borderWidth = 0.5;
+    }
+
+    // ── Label ──
+    String? label;
+    if (isFlashing && !isEmpty) {
+      // Show the number on flash (both phases)
+      label = useArabic ? value!.toArabicDigits() : '$value';
+    } else if (!isDone && !isEmpty && isShowingPhase) {
+      // Show number during showing phase
+      label = useArabic ? value!.toArabicDigits() : '$value';
+    }
+    // In recalling: no label (blank squares)
+
+    // ── Tap handler ──
+    // Showing: any non-empty cell can be tapped (only "1" has effect in logic)
+    // Recalling: any non-done cell is tappable (including empty = wrong)
+    final bool tappable = isShowingPhase
+        ? (!isEmpty)
+        : (!isDone);
+
     return GestureDetector(
-      onTap: () {
-        Haptics.selection();
-        onTap();
-      },
+      onTap: tappable ? onTap : null,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 80,
-        height: 80,
+        duration: const Duration(milliseconds: 130),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: selected
-                ? [color.withValues(alpha: 0.25), color.withValues(alpha: 0.1)]
-                : [const Color(0xFF1C1C28), const Color(0xFF111118)],
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? color : AppColors.border,
-            width: selected ? 1.5 : 0.5,
-          ),
+          color: bgColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: borderColor, width: borderWidth),
+          boxShadow: isFlashing && flashCorrect
+              ? [
+                  BoxShadow(
+                    color: accentColor.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                  )
+                ]
+              : null,
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: AppTypography.headingSmall
-                  .copyWith(color: selected ? color : AppColors.textPrimary),
-            ),
-            Text(
-              sublabel,
-              style: AppTypography.caption
-                  .copyWith(color: selected ? color : AppColors.textSecondary),
-            ),
-          ],
-        ),
+        child: label != null
+            ? Center(
+                child: Text(
+                  label,
+                  style: AppTypography.headingSmall.copyWith(
+                    color: isFlashing ? flashColor : AppColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              )
+            : null,
       ),
     );
   }

@@ -97,6 +97,13 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
           _finishGame();
         } else {
           setState(() => _phase = _Phase.roundResult);
+          // Auto-advance after 1 s — player can also tap to skip
+          _waitTimer = Timer(const Duration(milliseconds: 1000), () {
+            if (mounted && _phase == _Phase.roundResult) {
+              setState(() => _phase = _Phase.waiting);
+              _scheduleReady();
+            }
+          });
         }
         break;
 
@@ -106,6 +113,8 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
         break;
 
       case _Phase.roundResult:
+        // Player tapped to skip the auto-advance countdown
+        _waitTimer?.cancel();
         setState(() => _phase = _Phase.waiting);
         _scheduleReady();
         break;

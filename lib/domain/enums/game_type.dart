@@ -1,15 +1,15 @@
-/// All 10 game types, ordered by priority
+/// All 10 game types (IDs are stable — used as Hive keys)
 enum GameType {
-  schulteGrid,       // 1. Schulte Grid
-  reactionTime,      // 2. Reaction Time
-  numberMemory,      // 3. Number Memory
-  stroopTest,        // 4. Stroop Test
-  visualMemory,      // 5. Visual Memory
-  sequenceMemory,    // 6. Sequence Memory
-  numberMatrix,      // 7. Number Matrix Test
-  reverseMemory,     // 8. Reverse Memory
-  slidingPuzzle,     // 9. Sliding Puzzle
-  towerOfHanoi,      // 10. Tower of Hanoi
+  schulteGrid,       // 1. Schulte Grid        (rec #1)
+  reactionTime,      // 2. Reaction Time        (rec #6)
+  numberMemory,      // 3. Number Memory        (rec #7)
+  stroopTest,        // 4. Stroop Test          (rec #2)
+  visualMemory,      // 5. Visual Memory        (rec #8)
+  sequenceMemory,    // 6. Sequence / Simon     (rec #4/#9)
+  numberMatrix,      // 7. Chimp Test           (rec #10)
+  reverseMemory,     // 8. Reverse Memory       (rec #3)
+  slidingPuzzle,     // 9. Sliding Puzzle       (rec #11)
+  towerOfHanoi,      // 10. Tower of Hanoi      (rec #5)
 }
 
 extension GameTypeId on GameType {
@@ -37,7 +37,7 @@ extension GameTypeId on GameType {
     GameType.stroopTest => 'correct',
     GameType.visualMemory => 'correct',
     GameType.sequenceMemory => 'length',
-    GameType.numberMatrix => 'time',
+    GameType.numberMatrix => 'length',
     GameType.reverseMemory => 'length',
     GameType.slidingPuzzle => 'moves',
     GameType.towerOfHanoi => 'moves',
@@ -51,7 +51,7 @@ extension GameTypeId on GameType {
     GameType.stroopTest => false,
     GameType.visualMemory => false,
     GameType.sequenceMemory => false,
-    GameType.numberMatrix => true,
+    GameType.numberMatrix => false,
     GameType.reverseMemory => false,
     GameType.slidingPuzzle => true,
     GameType.towerOfHanoi => true,
