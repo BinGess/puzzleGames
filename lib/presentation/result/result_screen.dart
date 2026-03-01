@@ -1725,64 +1725,66 @@ class _SharePreviewSheetState extends State<_SharePreviewSheet> {
             // ── Header: drag handle + close button ──────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-              child: Stack(
-                alignment: Alignment.center,
+              child: Column(
                 children: [
-                  // Centered drag handle
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  // Close button — top-right
-                  Positioned(
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: () {
-                        Haptics.light();
-                        Navigator.of(context).pop();
-                      },
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 74,
-                          minHeight: 38,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceElevated,
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color:
-                                AppColors.textSecondary.withValues(alpha: 0.35),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.close_rounded,
-                              color: AppColors.textPrimary,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              tr(context, 'إغلاق', 'Close', '关闭'),
-                              style: AppTypography.labelMedium.copyWith(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () {
+                          Haptics.light();
+                          Navigator.of(context).pop();
+                        },
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 74,
+                            minHeight: 38,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceElevated,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color:
+                                  AppColors.textSecondary.withValues(alpha: 0.35),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.close_rounded,
+                                color: AppColors.textPrimary,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                tr(context, 'إغلاق', 'Close', '关闭'),
+                                style: AppTypography.labelMedium.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
