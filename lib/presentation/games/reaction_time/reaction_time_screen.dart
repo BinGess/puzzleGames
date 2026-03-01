@@ -316,11 +316,15 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
                     color: AppColors.success, size: 56),
               ),
               const SizedBox(height: 24),
-              Text(
-                tr(context, 'اضغط الآن!', 'TAP NOW!', '立即点击！'),
-                style: AppTypography.displayLarge.copyWith(
-                  color: AppColors.success,
-                  fontWeight: FontWeight.w800,
+              SizedBox(
+                width: 260,
+                child: Text(
+                  tr(context, 'اضغط الآن!', 'TAP NOW!', '立即点击！'),
+                  textAlign: TextAlign.center,
+                  style: AppTypography.headingLarge.copyWith(
+                    color: AppColors.success,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],
