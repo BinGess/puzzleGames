@@ -165,6 +165,14 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
     };
   }
 
+  IconData _difficultyIcon(int size) {
+    return switch (size) {
+      3 => Icons.grid_view_rounded,
+      4 => Icons.extension_rounded,
+      _ => Icons.bolt_rounded,
+    };
+  }
+
   Future<void> _finishGame() async {
     _stopwatch.stop();
     _uiTimer?.cancel();
@@ -251,49 +259,101 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
-              children: <Widget>[
-                _SizePill(
-                  label: tr(context, '٣×٣', '3×3', '3×3'),
-                  sublabel:
-                      '${_difficultyLabel(context, 3)} · ${_difficultyHint(context, 3)}',
-                  selected: _gridSize == 3,
-                  color: AppColors.slidingPuzzle,
-                  onTap: () => setState(() => _gridSize = 3),
-                ),
-                _SizePill(
-                  label: tr(context, '٤×٤', '4×4', '4×4'),
-                  sublabel:
-                      '${_difficultyLabel(context, 4)} · ${_difficultyHint(context, 4)}',
-                  selected: _gridSize == 4,
-                  color: AppColors.slidingPuzzle,
-                  onTap: () => setState(() => _gridSize = 4),
-                ),
-                _SizePill(
-                  label: tr(context, '٥×٥', '5×5', '5×5'),
-                  sublabel:
-                      '${_difficultyLabel(context, 5)} · ${_difficultyHint(context, 5)}',
-                  selected: _gridSize == 5,
-                  color: AppColors.slidingPuzzle,
-                  onTap: () => setState(() => _gridSize = 5),
-                ),
-              ],
-            ),
-            const SizedBox(height: 48),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _startGame,
-                child: Text(tr(context, 'ابدأ', 'Start', '开始')),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.extension, color: AppColors.slidingPuzzle, size: 64),
+              const SizedBox(height: 24),
+              Text(
+                tr(context, 'لغز الأرقام', 'Sliding Puzzle', '数字华容道'),
+                style: AppTypography.headingMedium,
+                textAlign: TextAlign.center,
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                tr(
+                  context,
+                  'اختر مستوى الصعوبة ثم رتّب الأرقام بأقل عدد حركات',
+                  'Choose a difficulty, then solve with the fewest moves',
+                  '选择难度后，用最少步数完成拼图',
+                ),
+                style: AppTypography.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+              ...[3, 4, 5].map((size) {
+                final selected = _gridSize == size;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () {
+                      Haptics.selection();
+                      setState(() => _gridSize = size);
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? AppColors.slidingPuzzle.withValues(alpha: 0.16)
+                            : AppColors.surfaceElevated,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: selected
+                              ? AppColors.slidingPuzzle
+                              : AppColors.border,
+                          width: selected ? 1.2 : 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _difficultyIcon(size),
+                            color: selected
+                                ? AppColors.slidingPuzzle
+                                : AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${size}×$size · ${_difficultyLabel(context, size)}',
+                                  style: AppTypography.labelLarge.copyWith(
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _difficultyHint(context, size),
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _startGame,
+                  child: Text(tr(context, 'ابدأ', 'Start', '开始')),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -381,60 +441,6 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SizePill extends StatelessWidget {
-  final String label;
-  final String sublabel;
-  final bool selected;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _SizePill({
-    required this.label,
-    required this.sublabel,
-    required this.selected,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Haptics.selection();
-        onTap();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 132,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? color.withValues(alpha: 0.15)
-              : AppColors.surfaceElevated,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? color : AppColors.border,
-            width: selected ? 1.5 : 0.5,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(label,
-                style: AppTypography.headingSmall
-                    .copyWith(color: selected ? color : AppColors.textPrimary)),
-            Text(sublabel,
-                style: AppTypography.caption.copyWith(
-                    color: selected ? color : AppColors.textSecondary),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
-          ],
-        ),
       ),
     );
   }
