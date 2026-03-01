@@ -17,6 +17,8 @@ import '../../providers/app_providers.dart';
 // ─── Phase ───────────────────────────────────────────────────────────────────
 enum _ChimpPhase { config, showing, recalling, levelSuccess }
 
+enum _ChimpDifficulty { easy, medium, hard }
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 class NumberMatrixScreen extends ConsumerStatefulWidget {
   const NumberMatrixScreen({super.key});
@@ -26,18 +28,14 @@ class NumberMatrixScreen extends ConsumerStatefulWidget {
 }
 
 class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
-  // 4×4 = 16-cell grid
-  static const _cols = 4;
-  static const _rows = 4;
-  static const _total = _cols * _rows; // 16
-
   final _rng = Random();
   _ChimpPhase _phase = _ChimpPhase.config;
+  _ChimpDifficulty _difficulty = _ChimpDifficulty.easy;
 
   // Numbers placed in grid (null = empty cell)
-  List<int?> _grid = List.filled(_total, null);
+  List<int?> _grid = const [];
   // Whether each cell has been correctly tapped
-  List<bool> _done = List.filled(_total, false);
+  List<bool> _done = const [];
 
   int _level = 4; // how many numbers in current round
   int _maxCompleted = 0; // highest level fully recalled (= score)
@@ -49,6 +47,8 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
   bool _flashCorrect = false;
 
   Timer? _successTimer;
+  Timer? _showingTimer;
+  int _showCountdown = 0;
 
   @override
   void initState() {
@@ -63,18 +63,81 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
   @override
   void dispose() {
     _successTimer?.cancel();
+    _showingTimer?.cancel();
     super.dispose();
   }
 
   // ─── Game logic ────────────────────────────────────────────────────────────
+  int get _cols => switch (_difficulty) {
+        _ChimpDifficulty.easy => 4,
+        _ChimpDifficulty.medium => 5,
+        _ChimpDifficulty.hard => 6,
+      };
+
+  int get _rows => _cols;
+  int get _total => _cols * _rows;
+
+  int _startLevelByDifficulty(_ChimpDifficulty difficulty) {
+    return switch (difficulty) {
+      _ChimpDifficulty.easy => 4,
+      _ChimpDifficulty.medium => 6,
+      _ChimpDifficulty.hard => 8,
+    };
+  }
+
+  bool _isTapToStartMode() => _difficulty == _ChimpDifficulty.easy;
+
+  double _showDurationByDifficulty() {
+    return switch (_difficulty) {
+      _ChimpDifficulty.easy => 0,
+      _ChimpDifficulty.medium => 3.5,
+      _ChimpDifficulty.hard => 2.2,
+    };
+  }
+
+  String _difficultyTitle(BuildContext context, _ChimpDifficulty difficulty) {
+    return switch (difficulty) {
+      _ChimpDifficulty.easy => tr(context, '简单', 'Easy', '简单'),
+      _ChimpDifficulty.medium => tr(context, '进阶', 'Medium', '进阶'),
+      _ChimpDifficulty.hard => tr(context, '专家', 'Hard', '专家'),
+    };
+  }
+
+  String _difficultySubtitle(
+      BuildContext context, _ChimpDifficulty difficulty) {
+    return switch (difficulty) {
+      _ChimpDifficulty.easy => tr(context, '4×4，起始4个数字，点1开始回忆',
+          '4x4, starts at 4 numbers, tap 1 to hide', '4×4，起始4个数字，点1开始回忆'),
+      _ChimpDifficulty.medium => tr(
+          context,
+          '5×5，起始6个数字，3.5秒后自动隐藏',
+          '5x5, starts at 6 numbers, auto-hide after 3.5s',
+          '5×5，起始6个数字，3.5秒后自动隐藏'),
+      _ChimpDifficulty.hard => tr(
+          context,
+          '6×6，起始8个数字，2.2秒后自动隐藏',
+          '6x6, starts at 8 numbers, auto-hide after 2.2s',
+          '6×6，起始8个数字，2.2秒后自动隐藏'),
+    };
+  }
+
+  void _syncBoardBuffers() {
+    _grid = List<int?>.filled(_total, null);
+    _done = List<bool>.filled(_total, false);
+  }
 
   void _startGame() {
-    _level = 4;
+    _level = _startLevelByDifficulty(_difficulty);
     _maxCompleted = 0;
+    _syncBoardBuffers();
     _startRound();
   }
 
   void _startRound() {
+    _showingTimer?.cancel();
+    _successTimer?.cancel();
+    _level = min(_level, _total);
+
     // Pick _level random positions and assign numbers 1.._level
     final positions = List.generate(_total, (i) => i)..shuffle(_rng);
     final newGrid = List<int?>.filled(_total, null);
@@ -87,7 +150,23 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
       _nextExpected = 1;
       _flashCell = null;
       _phase = _ChimpPhase.showing;
+      _showCountdown =
+          _isTapToStartMode() ? 0 : _showDurationByDifficulty().ceil();
     });
+
+    if (!_isTapToStartMode()) {
+      _showingTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (!mounted || _phase != _ChimpPhase.showing) {
+          t.cancel();
+          return;
+        }
+        setState(() => _showCountdown--);
+        if (_showCountdown <= 0) {
+          t.cancel();
+          setState(() => _phase = _ChimpPhase.recalling);
+        }
+      });
+    }
   }
 
   void _onCellTap(int index) {
@@ -95,6 +174,7 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
 
     // ── Showing phase: only clicking "1" advances ──
     if (_phase == _ChimpPhase.showing) {
+      if (!_isTapToStartMode()) return;
       if (val == 1) {
         Haptics.light();
         setState(() {
@@ -141,12 +221,17 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
         setState(() => _flashCell = null);
         if (_nextExpected > _level) {
           // Level complete!
+          Haptics.success();
           _maxCompleted = _level;
           setState(() => _phase = _ChimpPhase.levelSuccess);
           _successTimer = Timer(const Duration(milliseconds: 900), () {
             if (mounted) {
-              _level++;
-              _startRound();
+              if (_level >= _total) {
+                _finishGame();
+              } else {
+                _level++;
+                _startRound();
+              }
             }
           });
         }
@@ -166,13 +251,19 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
 
   Future<void> _finishGame() async {
     _successTimer?.cancel();
+    _showingTimer?.cancel();
     final score = _maxCompleted.toDouble();
     final record = ScoreRecord(
       gameId: GameType.numberMatrix.id,
       score: score,
       timestamp: DateTime.now(),
-      difficulty: (_level - 4).clamp(0, 10),
-      metadata: {'maxCompleted': _maxCompleted, 'failedAt': _level},
+      difficulty: _difficulty.index + 1,
+      metadata: {
+        'maxCompleted': _maxCompleted,
+        'failedAt': _level,
+        'mode': _difficulty.name,
+        'grid': '${_cols}x$_rows',
+      },
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
@@ -239,38 +330,100 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.psychology,
-                color: AppColors.numberMatrix, size: 64),
-            const SizedBox(height: 24),
-            Text(
-              tr(context, 'اختبار الشمبانزي', 'Chimp Test', '猩猩测试'),
-              style: AppTypography.headingMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              tr(
-                context,
-                'احفظ مواضع الأرقام — اضغط ١ أولاً، ثم تذكّر البقية!',
-                'Memorize positions — tap ١ first, then recall the rest!',
-                '记住位置 — 先点击１，再凭记忆完成！',
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.psychology,
+                  color: AppColors.numberMatrix, size: 64),
+              const SizedBox(height: 24),
+              Text(
+                tr(context, 'اختبار الشمبانزي', 'Chimp Test', '猩猩测试'),
+                style: AppTypography.headingMedium,
+                textAlign: TextAlign.center,
               ),
-              style: AppTypography.bodyMedium
-                  .copyWith(color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 48),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _startGame,
-                child: Text(tr(context, 'ابدأ', 'Start', '开始')),
+              const SizedBox(height: 12),
+              Text(
+                tr(
+                  context,
+                  '选择难度后开始，难度越高记忆窗口越短',
+                  'Choose a difficulty. Higher levels shorten memory window.',
+                  '选择难度后开始，难度越高记忆窗口越短',
+                ),
+                style: AppTypography.bodyMedium
+                    .copyWith(color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
               ),
-            ),
-          ],
+              const SizedBox(height: 28),
+              ..._ChimpDifficulty.values.map((difficulty) {
+                final selected = _difficulty == difficulty;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => setState(() => _difficulty = difficulty),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? AppColors.numberMatrix.withValues(alpha: 0.16)
+                            : AppColors.surfaceElevated,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: selected
+                              ? AppColors.numberMatrix
+                              : AppColors.border,
+                          width: selected ? 1.2 : 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            difficulty == _ChimpDifficulty.easy
+                                ? Icons.visibility_rounded
+                                : Icons.flash_on_rounded,
+                            color: selected
+                                ? AppColors.numberMatrix
+                                : AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _difficultyTitle(context, difficulty),
+                                  style: AppTypography.labelLarge.copyWith(
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _difficultySubtitle(context, difficulty),
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _startGame,
+                  child: Text(tr(context, 'ابدأ', 'Start', '开始')),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -306,6 +459,12 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
   // ── Active game grid ──────────────────────────────────────────────────────
   Widget _buildGame(BuildContext context) {
     final isShowing = _phase == _ChimpPhase.showing;
+    final hintText = isShowing
+        ? (_isTapToStartMode()
+            ? tr(context, 'اضغط على ١ للبدء', 'Tap ١ to begin', '点击 １ 开始')
+            : tr(context, 'احفظ المواضع: $_showCountdown ث',
+                'Memorize: $_showCountdown' 's', '记忆倒计时：$_showCountdown 秒'))
+        : tr(context, 'تذكّر وأكمل الترتيب', 'Recall the order', '凭记忆完成顺序');
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -317,11 +476,7 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
               duration: const Duration(milliseconds: 200),
               child: Text(
                 key: ValueKey(isShowing),
-                isShowing
-                    ? tr(context, 'اضغط على ١ للبدء', 'Tap ١ to begin',
-                        '点击 １ 开始')
-                    : tr(context, 'تذكّر وأكمل الترتيب', 'Recall the order',
-                        '凭记忆完成顺序'),
+                hintText,
                 style: AppTypography.labelMedium
                     .copyWith(color: AppColors.textSecondary),
               ),
@@ -332,7 +487,7 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
               aspectRatio: _cols / _rows,
               child: GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: _cols,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,

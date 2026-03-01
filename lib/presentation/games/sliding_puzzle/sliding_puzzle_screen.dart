@@ -119,7 +119,7 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
     final emptyIdx = _tiles.indexOf(0);
     if (!_neighbors(emptyIdx, _gridSize).contains(index)) return;
 
-    Haptics.selection();
+    Haptics.light();
     setState(() {
       _tiles[emptyIdx] = _tiles[index];
       _tiles[index] = 0;
@@ -128,6 +128,7 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
 
     if (_isSolved()) {
       _gameActive = false;
+      Haptics.success();
       _finishGame();
     }
   }

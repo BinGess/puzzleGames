@@ -146,10 +146,13 @@ _PercentileEstimate _estimatePercentiles({
   final blendWeight = 0.30 + 0.55 * confidence;
   final modelPercentile =
       (empirical + trendDelta + consistencyDelta).clamp(1.0, 99.0);
-  final global =
+  var global =
       (baseGlobal * (1 - blendWeight) + modelPercentile * blendWeight)
           .round()
           .clamp(1, 99);
+  // Low-sample safety: shrink toward median to avoid overconfident claims.
+  final shrink = (0.35 + 0.65 * confidence).clamp(0.35, 1.0);
+  global = (50 + (global - 50) * shrink).round().clamp(1, 99);
 
   int ageAdjust = 0;
   if (age != null) {
@@ -168,10 +171,12 @@ _PercentileEstimate _estimatePercentiles({
     (math.log(totalSessions + 1) / math.ln2).floor(),
   );
   final peerCentered = (50 + (global - 50) * 0.88).round();
-  final agePercentile =
+  var agePercentile =
       (peerCentered + ageAdjust + (experienceAdjust * 0.5).round())
           .round()
           .clamp(1, 99);
+  agePercentile =
+      (50 + (agePercentile - 50) * shrink).round().clamp(1, 99);
 
   return _PercentileEstimate(
     global: global,
@@ -544,6 +549,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
                               tier: tier,
                               percentile: percentileEstimate.global,
                               agePercentile: percentileEstimate.age,
+                              confidence: percentileEstimate.confidence,
                               lqAnim: _lqCountAnim,
                               barAnim: _barAnim,
                               dimensionHint: _dimensionTr(),
@@ -968,6 +974,7 @@ class _LQSection extends StatelessWidget {
   final ({String ar, String en, String zh, Color color, IconData icon}) tier;
   final int percentile;
   final int agePercentile;
+  final double confidence;
   final Animation<double> lqAnim;
   final Animation<double> barAnim;
   final String dimensionHint;
@@ -979,6 +986,7 @@ class _LQSection extends StatelessWidget {
     required this.tier,
     required this.percentile,
     required this.agePercentile,
+    required this.confidence,
     required this.lqAnim,
     required this.barAnim,
     required this.dimensionHint,
@@ -1098,6 +1106,14 @@ class _LQSection extends StatelessWidget {
                               text:
                                   tr(context, ' من الناس', ' of people', ' 的人'),
                             ),
+                            if (confidence < 0.45)
+                              TextSpan(
+                                text: tr(context, ' (تقديري)', ' (estimate)', '（估算）'),
+                                style: AppTypography.caption.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -1134,12 +1150,19 @@ class _LQSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              tr(
-                context,
-                'تقدير مبني على نتائجك الأخيرة',
-                'Estimate based on your recent results',
-                '基于你最近成绩估算',
-              ),
+              confidence < 0.45
+                  ? tr(
+                      context,
+                      'دقة التقدير منخفضة حاليًا بسبب قلة النتائج',
+                      'Estimate confidence is low due to limited results',
+                      '当前结果较少，估算置信度较低',
+                    )
+                  : tr(
+                      context,
+                      'تقدير مبني على نتائجك الأخيرة',
+                      'Estimate based on your recent results',
+                      '基于你最近成绩估算',
+                    ),
               style: AppTypography.caption.copyWith(
                 fontSize: 10.5,
                 color: AppColors.textSecondary,
@@ -1723,18 +1746,40 @@ class _SharePreviewSheetState extends State<_SharePreviewSheet> {
                         Navigator.of(context).pop();
                       },
                       child: Container(
-                        width: 32,
-                        height: 32,
+                        constraints: const BoxConstraints(
+                          minWidth: 74,
+                          minHeight: 38,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.surfaceElevated,
-                          shape: BoxShape.circle,
-                          border:
-                              Border.all(color: AppColors.border, width: 0.5),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color:
+                                AppColors.textSecondary.withValues(alpha: 0.35),
+                            width: 0.8,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          color: AppColors.textSecondary,
-                          size: 16,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.close_rounded,
+                              color: AppColors.textPrimary,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              tr(context, 'إغلاق', 'Close', '关闭'),
+                              style: AppTypography.labelMedium.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

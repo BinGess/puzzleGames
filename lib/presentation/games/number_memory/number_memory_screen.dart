@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
@@ -16,6 +17,8 @@ import '../../providers/app_providers.dart';
 
 enum _MemPhase { config, memorize, input, feedback }
 
+enum _MemDifficulty { easy, medium, hardVoice }
+
 class NumberMemoryScreen extends ConsumerStatefulWidget {
   const NumberMemoryScreen({super.key});
 
@@ -24,16 +27,18 @@ class NumberMemoryScreen extends ConsumerStatefulWidget {
 }
 
 class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
-  static const _maxLength = 10;
-
   final _rng = Random();
+  final _tts = FlutterTts();
   _MemPhase _phase = _MemPhase.config;
+  _MemDifficulty _difficulty = _MemDifficulty.easy;
 
   int _currentLength = 3;
   String _currentSequence = '';
   String _inputValue = '';
   bool _lastCorrect = false;
   int _maxReached = 0;
+  int _roundToken = 0;
+  bool _isSpeaking = false;
 
   Timer? _timer;
   int _countdown = 3; // seconds remaining during memorize phase
@@ -46,17 +51,22 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
       Haptics.setSoundGameId(GameType.numberMemory.id);
       GameRulesHelper.ensureShownOnce(context, GameType.numberMemory);
     });
+    _tts.awaitSpeakCompletion(true);
+    _tts.setVolume(1.0);
+    _tts.setPitch(1.0);
   }
 
   @override
   void dispose() {
+    _roundToken++;
+    _tts.stop();
     _timer?.cancel();
     super.dispose();
   }
 
   void _startGame() {
     setState(() {
-      _currentLength = 3;
+      _currentLength = _startLengthByDifficulty(_difficulty);
       _inputValue = '';
       _maxReached = 0;
       _phase = _MemPhase.config;
@@ -64,23 +74,35 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
     _startRound();
   }
 
-  void _startRound() {
+  Future<void> _startRound() async {
+    final token = ++_roundToken;
     // Generate random digit sequence
     final digits =
         List.generate(_currentLength, (_) => _rng.nextInt(10).toString());
     _currentSequence = digits.join();
 
-    // Show duration: 3s for 3 digits, +0.5s per additional digit
-    final showSecs = 3 + max(0, (_currentLength - 3) * 0.5);
+    final showSecs = _memorizeDurationByDifficulty(_currentLength);
     _countdown = showSecs.ceil();
 
     setState(() {
       _phase = _MemPhase.memorize;
       _inputValue = '';
+      _isSpeaking = _difficulty == _MemDifficulty.hardVoice;
     });
 
+    if (_difficulty == _MemDifficulty.hardVoice) {
+      await _speakSequence(_currentSequence);
+      if (!mounted || token != _roundToken) return;
+      setState(() => _isSpeaking = false);
+    }
+
+    if (!mounted || token != _roundToken) return;
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted || token != _roundToken) {
+        t.cancel();
+        return;
+      }
       setState(() => _countdown--);
       if (_countdown <= 0) {
         t.cancel();
@@ -108,15 +130,18 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
     final correct = _inputValue == _currentSequence;
 
     if (correct) {
-      Haptics.light();
+      Haptics.success();
       _maxReached = _currentLength;
-      _currentLength = min(_currentLength + 1, _maxLength);
+      _currentLength =
+          min(_currentLength + 1, _maxLengthByDifficulty(_difficulty));
       setState(() {
         _phase = _MemPhase.feedback;
         _lastCorrect = true;
       });
       Future.delayed(const Duration(milliseconds: 600), () {
-        if (mounted) _startRound();
+        if (mounted) {
+          _startRound();
+        }
       });
     } else {
       Haptics.medium();
@@ -131,13 +156,19 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
   }
 
   Future<void> _finishGame() async {
+    _roundToken++;
     _timer?.cancel();
+    await _tts.stop();
     final record = ScoreRecord(
       gameId: GameType.numberMemory.id,
       score: _maxReached.toDouble(),
       timestamp: DateTime.now(),
-      difficulty: 1,
-      metadata: {'maxLength': _maxReached},
+      difficulty: _difficulty.index + 1,
+      metadata: {
+        'maxLength': _maxReached,
+        'mode': _difficulty.name,
+        'voice': _difficulty == _MemDifficulty.hardVoice,
+      },
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
@@ -154,6 +185,65 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
       'lowerIsBetter': false,
       'isNewRecord': isNewRecord,
     });
+  }
+
+  int _startLengthByDifficulty(_MemDifficulty difficulty) {
+    return switch (difficulty) {
+      _MemDifficulty.easy => 3,
+      _MemDifficulty.medium => 4,
+      _MemDifficulty.hardVoice => 5,
+    };
+  }
+
+  int _maxLengthByDifficulty(_MemDifficulty difficulty) {
+    return switch (difficulty) {
+      _MemDifficulty.easy => 10,
+      _MemDifficulty.medium => 14,
+      _MemDifficulty.hardVoice => 18,
+    };
+  }
+
+  double _memorizeDurationByDifficulty(int length) {
+    final extra = max(0, length - _startLengthByDifficulty(_difficulty));
+    return switch (_difficulty) {
+      _MemDifficulty.easy => 3.2 + extra * 0.55,
+      _MemDifficulty.medium => 2.4 + extra * 0.4,
+      _MemDifficulty.hardVoice => 1.4 + extra * 0.22,
+    };
+  }
+
+  Future<void> _speakSequence(String sequence) async {
+    final locale = Localizations.localeOf(context).languageCode;
+    final lang = switch (locale) {
+      'zh' => 'zh-CN',
+      'ar' => 'ar-SA',
+      _ => 'en-US',
+    };
+    await _tts.setLanguage(lang);
+    await _tts.setSpeechRate(0.48);
+    await _tts.setQueueMode(0);
+    await _tts.stop();
+    final speech = sequence.split('').join(' ');
+    await _tts.speak(speech);
+  }
+
+  String _difficultyTitle(BuildContext context, _MemDifficulty difficulty) {
+    return switch (difficulty) {
+      _MemDifficulty.easy => tr(context, '简单', 'Easy', '简单'),
+      _MemDifficulty.medium => tr(context, '进阶', 'Medium', '进阶'),
+      _MemDifficulty.hardVoice => tr(context, '专家语音', 'Hard Voice', '专家语音'),
+    };
+  }
+
+  String _difficultySubtitle(BuildContext context, _MemDifficulty difficulty) {
+    return switch (difficulty) {
+      _MemDifficulty.easy => tr(context, '起始3位，显示更久',
+          'Start at 3 digits, longer memory time', '从3位开始，记忆时间更长'),
+      _MemDifficulty.medium => tr(context, '起始4位，更短记忆时间',
+          'Start at 4 digits, shorter memory time', '从4位开始，记忆时间更短'),
+      _MemDifficulty.hardVoice => tr(context, '起始5位，仅语音播报',
+          'Start at 5 digits, voice-only broadcast', '从5位开始，仅语音播报'),
+    };
   }
 
   @override
@@ -202,36 +292,98 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.pin, color: AppColors.numberMemory, size: 64),
-            const SizedBox(height: 24),
-            Text(
-              tr(context, 'ذاكرة الأرقام', 'Number Memory', '数字记忆'),
-              style: AppTypography.headingMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              tr(
-                  context,
-                  'احفظ الأرقام ثم أدخلها بنفس الترتيب. يزيد الطول مع كل إجابة صحيحة.',
-                  'Memorize the numbers then enter them in order. Length increases with each correct answer.',
-                  '记住数字并按顺序输入。每答对一次长度增加。'),
-              style: AppTypography.bodyMedium
-                  .copyWith(color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 48),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _startGame,
-                child: Text(tr(context, 'ابدأ', 'Start', '开始')),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.pin, color: AppColors.numberMemory, size: 64),
+              const SizedBox(height: 24),
+              Text(
+                tr(context, 'ذاكرة الأرقام', 'Number Memory', '数字记忆'),
+                style: AppTypography.headingMedium,
+                textAlign: TextAlign.center,
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                tr(
+                    context,
+                    'اختر الصعوبة ثم أدخل الأرقام بنفس الترتيب',
+                    'Choose a difficulty and then enter digits in the same order',
+                    '选择难度后按原顺序输入数字'),
+                style: AppTypography.bodyMedium
+                    .copyWith(color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+              ..._MemDifficulty.values.map((difficulty) {
+                final selected = _difficulty == difficulty;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => setState(() => _difficulty = difficulty),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? AppColors.numberMemory.withValues(alpha: 0.16)
+                            : AppColors.surfaceElevated,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: selected
+                              ? AppColors.numberMemory
+                              : AppColors.border,
+                          width: selected ? 1.2 : 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            difficulty == _MemDifficulty.hardVoice
+                                ? Icons.record_voice_over_rounded
+                                : Icons.timer_rounded,
+                            color: selected
+                                ? AppColors.numberMemory
+                                : AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _difficultyTitle(context, difficulty),
+                                  style: AppTypography.labelLarge.copyWith(
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _difficultySubtitle(context, difficulty),
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _startGame,
+                  child: Text(tr(context, 'ابدأ', 'Start', '开始')),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -241,28 +393,42 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
     final displaySeq = useArabicDigits(context)
         ? _currentSequence.toArabicNumerals()
         : _currentSequence;
+    final totalCountdown = _memorizeDurationByDifficulty(_currentLength).ceil();
+    final isVoiceMode = _difficulty == _MemDifficulty.hardVoice;
 
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            displaySeq,
-            style: AppTypography.digitFlash,
-            textDirection: TextDirection.ltr, // digits always LTR order
-          ),
+          if (isVoiceMode)
+            Icon(
+              _isSpeaking ? Icons.volume_up_rounded : Icons.hearing_rounded,
+              size: 72,
+              color: AppColors.numberMemory,
+            )
+          else
+            Text(
+              displaySeq,
+              style: AppTypography.digitFlash,
+              textDirection: TextDirection.ltr, // digits always LTR order
+            ),
           const SizedBox(height: 32),
           Text(
-            tr(context, 'يختفي خلال $_countdown ث',
-                'Disappears in $_countdown' 's', '$_countdown秒后消失'),
+            isVoiceMode
+                ? (_isSpeaking
+                    ? tr(context, 'استمع جيدًا...', 'Listen carefully...',
+                        '请认真听语音...')
+                    : tr(context, '开始输入 خلال $_countdown ث',
+                        'Input starts in $_countdown' 's', '$_countdown秒后开始输入'))
+                : tr(context, 'يختفي خلال $_countdown ث',
+                    'Disappears in $_countdown' 's', '$_countdown秒后消失'),
             style: AppTypography.caption,
           ),
           const SizedBox(height: 24),
           SizedBox(
             width: 200,
             child: LinearProgressIndicator(
-              value:
-                  _countdown / (3 + max(0, (_currentLength - 3) * 0.5).ceil()),
+              value: _countdown / max(1, totalCountdown),
               backgroundColor: AppColors.border,
               valueColor:
                   const AlwaysStoppedAnimation<Color>(AppColors.numberMemory),

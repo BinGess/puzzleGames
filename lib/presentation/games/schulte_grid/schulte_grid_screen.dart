@@ -88,6 +88,7 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen> {
         _nextTarget++;
       });
       if (_nextTarget > _gridSize * _gridSize) {
+        Haptics.success();
         _finishGame();
       } else {
         Future.delayed(const Duration(milliseconds: 250), () {

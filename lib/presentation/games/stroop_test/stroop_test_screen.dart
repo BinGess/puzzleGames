@@ -119,6 +119,7 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
     _current++;
 
     if (_current >= _totalStimuli) {
+      Haptics.success();
       Future.delayed(const Duration(milliseconds: 300), _finishGame);
     } else {
       Future.delayed(const Duration(milliseconds: 300), () {

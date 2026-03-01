@@ -94,6 +94,7 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
         _currentRound++;
 
         if (_currentRound >= _totalRounds) {
+          Haptics.success();
           _finishGame();
         } else {
           setState(() => _phase = _Phase.roundResult);

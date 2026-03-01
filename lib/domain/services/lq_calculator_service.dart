@@ -47,11 +47,11 @@ class LqCalculatorService {
 
   double _computeSpeed(Map<String, List<ScoreRecord>> byGame) {
     // reactionTime (60%) + schulteGrid (40%)
-    final reaction = _bestNormalized(
+    final reaction = _gameScoreNormalized(
       byGame[GameType.reactionTime.id],
       _normalizeReactionTime,
     );
-    final schulte = _bestNormalized(
+    final schulte = _gameScoreNormalized(
       byGame[GameType.schulteGrid.id],
       _normalizeSchulte,
     );
@@ -60,19 +60,19 @@ class LqCalculatorService {
 
   double _computeMemory(Map<String, List<ScoreRecord>> byGame) {
     // numberMemory(35%) + visualMemory(25%) + sequenceMemory(25%) + reverseMemory(15%)
-    final numMem = _bestNormalized(
+    final numMem = _gameScoreNormalized(
       byGame[GameType.numberMemory.id],
       _normalizeMemoryLength,
     );
-    final visMem = _bestNormalized(
+    final visMem = _gameScoreNormalized(
       byGame[GameType.visualMemory.id],
       _normalizeVisualMemory,
     );
-    final seqMem = _bestNormalized(
+    final seqMem = _gameScoreNormalized(
       byGame[GameType.sequenceMemory.id],
       _normalizeSequenceLength,
     );
-    final revMem = _bestNormalized(
+    final revMem = _gameScoreNormalized(
       byGame[GameType.reverseMemory.id],
       _normalizeReverseLength,
     );
@@ -85,27 +85,27 @@ class LqCalculatorService {
   double _computeSpaceLogic(Map<String, List<ScoreRecord>> byGame) {
     // numberMatrix(20%) + sequenceMemory(15%) + visualMemory(15%)
     // + slidingPuzzle(20%) + hanoi(20%) + reverseMemory(10%)
-    final numMatrix = _bestNormalized(
+    final numMatrix = _gameScoreNormalized(
       byGame[GameType.numberMatrix.id],
       _normalizeNumberMatrix,
     );
-    final seqMem = _bestNormalized(
+    final seqMem = _gameScoreNormalized(
       byGame[GameType.sequenceMemory.id],
       _normalizeSequenceLength,
     );
-    final visMem = _bestNormalized(
+    final visMem = _gameScoreNormalized(
       byGame[GameType.visualMemory.id],
       _normalizeVisualMemory,
     );
-    final sliding = _bestNormalized(
+    final sliding = _gameScoreNormalized(
       byGame[GameType.slidingPuzzle.id],
       _normalizeSlidingPuzzle,
     );
-    final hanoi = _bestNormalized(
+    final hanoi = _gameScoreNormalized(
       byGame[GameType.towerOfHanoi.id],
       _normalizeHanoi,
     );
-    final revMem = _bestNormalized(
+    final revMem = _gameScoreNormalized(
       byGame[GameType.reverseMemory.id],
       _normalizeReverseLength,
     );
@@ -117,15 +117,15 @@ class LqCalculatorService {
 
   double _computeFocus(Map<String, List<ScoreRecord>> byGame) {
     // stroop(50%) + schulteGrid(30%) + numberMatrix(20%)
-    final stroop = _bestNormalized(
+    final stroop = _gameScoreNormalized(
       byGame[GameType.stroopTest.id],
       _normalizeStroop,
     );
-    final schulte = _bestNormalized(
+    final schulte = _gameScoreNormalized(
       byGame[GameType.schulteGrid.id],
       _normalizeSchulte,
     );
-    final numMatrix = _bestNormalized(
+    final numMatrix = _gameScoreNormalized(
       byGame[GameType.numberMatrix.id],
       _normalizeNumberMatrix,
     );
@@ -136,7 +136,7 @@ class LqCalculatorService {
 
   /// Returns 0-5 based on consistency of recent scores
   double _computeStabilityBonus(List<ScoreRecord> recent) {
-    if (recent.length < 3) return 2.5; // not enough data → neutral bonus
+    if (recent.length < 3) return 0.0; // not enough data → no bonus
     final scores = recent.take(10).map((r) => r.score).toList();
     final mean = scores.reduce((a, b) => a + b) / scores.length;
     if (mean == 0) return 0;
@@ -210,30 +210,46 @@ class LqCalculatorService {
 
   // ─── Helpers ─────────────────────────────────────────────────────
 
-  /// Get the best (highest) normalized score from a list of records
-  double _bestNormalized(
+  /// Robust per-game normalized score (0-100):
+  /// - 70% recent average (last up to 5 attempts)
+  /// - 30% top-K average (best up to 3 attempts)
+  /// - confidence scaling for low sample counts
+  double _gameScoreNormalized(
     List<ScoreRecord>? records,
     double Function(double) normalize,
   ) {
     if (records == null || records.isEmpty) return 0;
-    final normalized = records.map((r) => normalize(r.score));
-    return normalized.reduce(math.max);
+    final normalizedRecent = records
+        .take(5)
+        .map((r) => normalize(r.score).clamp(0, 100).toDouble())
+        .toList();
+    final recentAvg =
+        normalizedRecent.reduce((a, b) => a + b) / normalizedRecent.length;
+
+    final normalizedAll = records
+        .map((r) => normalize(r.score).clamp(0, 100).toDouble())
+        .toList()
+      ..sort((a, b) => b.compareTo(a));
+    final topK = normalizedAll.take(math.min(3, normalizedAll.length)).toList();
+    final topAvg = topK.reduce((a, b) => a + b) / topK.length;
+
+    final blended = recentAvg * 0.70 + topAvg * 0.30;
+    final attempts = records.length;
+    final confidenceScale = (0.55 + 0.45 * (attempts / 6).clamp(0.0, 1.0));
+    return (blended * confidenceScale).clamp(0.0, 100.0);
   }
 
-  /// Weighted average of a list; zero-weight items (no data = 0) reduce score
+  /// Weighted average over all dimensions.
+  /// Missing games remain 0 and are not scaled up.
   double _weightedAvg(List<double> values, List<double> weights) {
     assert(values.length == weights.length);
     double sum = 0;
     double totalWeight = 0;
     for (int i = 0; i < values.length; i++) {
-      if (values[i] > 0) {
-        // Only include dimensions that have data
-        sum += values[i] * weights[i];
-        totalWeight += weights[i];
-      }
+      sum += values[i] * weights[i];
+      totalWeight += weights[i];
     }
     if (totalWeight == 0) return 0;
-    // Scale up to compensate for missing games (partial credit approach)
     return (sum / totalWeight).clamp(0, 100);
   }
 
