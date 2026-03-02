@@ -30,6 +30,7 @@ dependencies:
 
   # Audio (game sounds)
   audioplayers: ^6.0.0
+  flutter_tts: ^4.2.3
 
   # Localization
   flutter_localizations:

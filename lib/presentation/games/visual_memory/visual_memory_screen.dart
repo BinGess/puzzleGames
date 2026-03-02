@@ -141,6 +141,7 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
 
     // Check if all lit cells tapped
     if (_tappedIndices.containsAll(_litIndices)) {
+      Haptics.success();
       _maxCorrect = _numLit;
       final totalCells = _gridSize * _gridSize;
       final isAtCap = _numLit >= totalCells - 1;
