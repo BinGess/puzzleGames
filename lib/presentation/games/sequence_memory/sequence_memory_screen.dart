@@ -29,16 +29,16 @@ class SequenceMemoryScreen extends ConsumerStatefulWidget {
 }
 
 class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
-  static const _gridCells = 9; // 3×3
-
   final _rng = Random();
   _SeqPhase _phase = _SeqPhase.config;
   _SequenceDifficulty _difficulty = _SequenceDifficulty.medium;
+  int _gridSize = 4;
 
   List<int> _sequence = []; // the target sequence
   int _playbackIndex = 0; // which cell is currently lit during playback
   int _inputIndex = 0; // how many cells user has tapped
   int? _litCell; // cell index currently lit
+  int? _decoyCell; // hard mode distractor cell during playback
   bool _litCellIsError =
       false; // whether current lit cell should render as error
   bool? _lastFeedbackCorrect; // null=none, true=correct, false=wrong
@@ -51,6 +51,14 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
         _SequenceDifficulty.medium => 2,
         _SequenceDifficulty.hard => 3,
       };
+
+  int _gridSizeFor(_SequenceDifficulty difficulty) => switch (difficulty) {
+        _SequenceDifficulty.easy => 3,
+        _SequenceDifficulty.medium => 4,
+        _SequenceDifficulty.hard => 5,
+      };
+
+  int get _gridCells => _gridSize * _gridSize;
 
   int _startLengthFor(_SequenceDifficulty difficulty) => switch (difficulty) {
         _SequenceDifficulty.easy => 2,
@@ -103,22 +111,23 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
   String _difficultyHint(
           BuildContext context, _SequenceDifficulty difficulty) =>
       switch (difficulty) {
-        _SequenceDifficulty.easy =>
-          tr(context, 'سرعة عرض أبطأ', 'Slower playback rhythm', '播放节奏更慢'),
+        _SequenceDifficulty.easy => tr(context, '٣×٣ بسرعة عرض أبطأ',
+            '3×3 with slower playback', '3×3，播放节奏更慢'),
         _SequenceDifficulty.medium =>
-          tr(context, 'إيقاع متوازن', 'Balanced rhythm', '平衡节奏'),
-        _SequenceDifficulty.hard => tr(context, 'إيقاع سريع من البداية',
-            'Fast playback from the start', '开局即高节奏'),
+          tr(context, '٤×٤ بإيقاع متوازن', '4×4 balanced rhythm', '4×4，平衡节奏'),
+        _SequenceDifficulty.hard => tr(context, '٥×٥ + ألوان تشويش',
+            '5×5 + distractor flashes', '5×5 + 干扰色闪烁'),
       };
 
   String _difficultyMeta(BuildContext context, _SequenceDifficulty difficulty) {
     final start = _startLengthFor(difficulty);
     final goal = _goalLengthFor(difficulty);
+    final grid = _gridSizeFor(difficulty);
     return tr(
       context,
-      'بداية بطول $start · هدف $goal',
-      'Start length $start · Goal $goal',
-      '起始长度 $start · 目标 $goal',
+      'شبكة ${grid}×$grid · بداية $start · هدف $goal',
+      '${grid}×$grid grid · Start $start · Goal $goal',
+      '${grid}×$grid 网格 · 起始 $start · 目标 $goal',
     );
   }
 
@@ -145,12 +154,17 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
       GameType.sequenceMemory,
     );
     if (!canStart) return;
+    final gridSize = _gridSizeFor(_difficulty);
     final startLength = _startLengthFor(_difficulty);
 
     setState(() {
+      _gridSize = gridSize;
       _sequence = List.generate(startLength, (_) => _rng.nextInt(_gridCells));
       _maxLength = 0;
+      _inputIndex = 0;
       _phase = _SeqPhase.config;
+      _decoyCell = null;
+      _litCell = null;
       _litCellIsError = false;
       _lastFeedbackCorrect = null;
     });
@@ -162,6 +176,7 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
       _phase = _SeqPhase.playing;
       _playbackIndex = 0;
       _litCell = null;
+      _decoyCell = null;
       _litCellIsError = false;
       _lastFeedbackCorrect = null;
     });
@@ -180,8 +195,18 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
     }
 
     final cell = _sequence[_playbackIndex];
+    final decoy = _difficulty == _SequenceDifficulty.hard
+        ? () {
+            final candidatePool =
+                List.generate(_gridCells, (i) => i).where((i) => i != cell);
+            final list = candidatePool.toList(growable: false);
+            if (list.isEmpty) return null;
+            return list[_rng.nextInt(list.length)];
+          }()
+        : null;
     setState(() {
       _litCell = cell;
+      _decoyCell = decoy;
       _litCellIsError = false;
     });
     Haptics.selection();
@@ -189,6 +214,7 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
     _playbackTimer = Timer(_lightDurationFor(_difficulty), () {
       setState(() {
         _litCell = null;
+        _decoyCell = null;
         _litCellIsError = false;
       });
       _playbackTimer = Timer(_gapDurationFor(_difficulty), () {
@@ -206,6 +232,7 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
       Haptics.light();
       setState(() {
         _litCell = index;
+        _decoyCell = null;
         _litCellIsError = false;
         _inputIndex++;
       });
@@ -233,6 +260,7 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
       Haptics.medium();
       setState(() {
         _litCell = index;
+        _decoyCell = null;
         _litCellIsError = true;
         _lastFeedbackCorrect = false;
         _phase = _SeqPhase.feedback;
@@ -251,6 +279,8 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
       metadata: {
         'maxLength': _maxLength,
         'selectedDifficulty': _difficultyValue(_difficulty),
+        'gridSize': _gridSize,
+        'hardDecoy': _difficulty == _SequenceDifficulty.hard,
         'startLength': _startLengthFor(_difficulty),
         'goalLength': _goalLengthFor(_difficulty),
       },
@@ -362,9 +392,9 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
                     .map((d) => DifficultyOption(
                           value: d,
                           badge: switch (d) {
-                            _SequenceDifficulty.easy => 'E',
-                            _SequenceDifficulty.medium => 'M',
-                            _SequenceDifficulty.hard => 'H',
+                            _SequenceDifficulty.easy => '3×3',
+                            _SequenceDifficulty.medium => '4×4',
+                            _SequenceDifficulty.hard => '5×5+',
                           },
                           title: _difficultyLabel(context, d),
                           subtitle: _difficultyHint(context, d),
@@ -422,14 +452,17 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
               aspectRatio: 1,
               child: GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: _gridSize,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
                 ),
                 itemCount: _gridCells,
                 itemBuilder: (ctx, i) {
                   final isLit = _litCell == i;
+                  final isDecoy = _phase == _SeqPhase.playing &&
+                      _difficulty == _SequenceDifficulty.hard &&
+                      _decoyCell == i;
                   final litColor = _litCellIsError
                       ? AppColors.error
                       : AppColors.sequenceMemory;
@@ -441,11 +474,17 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
                       decoration: BoxDecoration(
                         color: isLit
                             ? litColor.withValues(alpha: 0.7)
-                            : const Color(0xFF1A1A26),
+                            : isDecoy
+                                ? AppColors.reaction.withValues(alpha: 0.58)
+                                : const Color(0xFF1A1A26),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isLit ? litColor : AppColors.border,
-                          width: isLit ? 1.5 : 0.5,
+                          color: isLit
+                              ? litColor
+                              : isDecoy
+                                  ? AppColors.reaction
+                                  : AppColors.border,
+                          width: isLit || isDecoy ? 1.5 : 0.5,
                         ),
                         boxShadow: isLit
                             ? [
@@ -454,7 +493,15 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
                                   blurRadius: 12,
                                 )
                               ]
-                            : null,
+                            : isDecoy
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.reaction
+                                          .withValues(alpha: 0.28),
+                                      blurRadius: 10,
+                                    )
+                                  ]
+                                : null,
                       ),
                     ),
                   );

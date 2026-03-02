@@ -45,6 +45,7 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
 
   // Medium / Hard target circle
   Size _readyAreaSize = Size.zero;
+  Rect _targetArenaRect = Rect.zero;
   Offset? _targetTopLeft;
   Offset _targetVelocity = Offset.zero;
 
@@ -88,14 +89,6 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
       _ReactionDifficulty.medium => tr(context, '٧ جولات', '7 rounds', '7 轮'),
       _ReactionDifficulty.hard => tr(context, '٩ جولات', '9 rounds', '9 轮'),
     };
-    final wait = switch (difficulty) {
-      _ReactionDifficulty.easy =>
-        tr(context, 'انتظار ٢.٢–٥.٢ث', 'Wait 2.2-5.2s', '等待 2.2-5.2 秒'),
-      _ReactionDifficulty.medium =>
-        tr(context, 'انتظار ١.٦–٤.٢ث', 'Wait 1.6-4.2s', '等待 1.6-4.2 秒'),
-      _ReactionDifficulty.hard =>
-        tr(context, 'انتظار ١.٢–٣.٠ث', 'Wait 1.2-3.0s', '等待 1.2-3.0 秒'),
-    };
     final target = switch (difficulty) {
       _ReactionDifficulty.easy =>
         tr(context, 'لمس أي مكان', 'Tap anywhere', '可点击任意位置'),
@@ -104,7 +97,7 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
       _ReactionDifficulty.hard =>
         tr(context, 'دائرة متحركة', 'Moving target', '移动目标'),
     };
-    return '$rounds · $wait · $target';
+    return '$rounds · $target';
   }
 
   int _waitMinMsFor(_ReactionDifficulty difficulty) => switch (difficulty) {
@@ -177,6 +170,7 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
       _lastMs = 0;
       _targetTopLeft = null;
       _readyAreaSize = Size.zero;
+      _targetArenaRect = Rect.zero;
     });
     _scheduleReady();
   }
@@ -185,6 +179,7 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
     _stopTargetMovement();
     _targetTopLeft = null;
     _readyAreaSize = Size.zero;
+    _targetArenaRect = Rect.zero;
     final minMs = _waitMinMsFor(_difficulty);
     final rangeMs = _waitRangeMsFor(_difficulty);
     final delay = minMs + _rng.nextInt(rangeMs + 1);
@@ -203,8 +198,10 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
     _targetVelocity = Offset.zero;
   }
 
-  void _maybeInitTarget(Size size) {
+  void _maybeInitTarget(Rect arenaRect) {
     if (!_usesTargetCircle || _phase != _Phase.ready) return;
+    _targetArenaRect = arenaRect;
+    final size = arenaRect.size;
     final hasSize = size.width > 0 && size.height > 0;
     if (!hasSize) return;
     final needInit = _targetTopLeft == null ||
@@ -229,7 +226,7 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
 
   Offset _randomTargetTopLeft(Size area) {
     final diameter = _targetDiameterFor(_difficulty);
-    const outerPadding = 18.0;
+    const outerPadding = 10.0;
     final freeX = max(0.0, area.width - diameter - outerPadding * 2);
     final freeY = max(0.0, area.height - diameter - outerPadding * 2);
     return Offset(
@@ -240,7 +237,7 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
 
   Offset _randomTargetVelocity() {
     final angle = _rng.nextDouble() * pi * 2;
-    final speed = 1.0 + _rng.nextDouble() * 0.4;
+    final speed = 1.4 + _rng.nextDouble() * 0.8;
     return Offset(cos(angle) * speed, sin(angle) * speed);
   }
 
@@ -252,7 +249,7 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
       return;
     }
 
-    _targetMoveTimer = Timer.periodic(const Duration(milliseconds: 16), (t) {
+    _targetMoveTimer = Timer.periodic(const Duration(milliseconds: 18), (t) {
       if (!mounted ||
           _phase != _Phase.ready ||
           _difficulty != _ReactionDifficulty.hard ||
@@ -279,6 +276,13 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
         nextY = nextY.clamp(0.0, maxY);
       }
 
+      if (_rng.nextDouble() < 0.018) {
+        final angle = atan2(vy, vx) + ((_rng.nextDouble() - 0.5) * 0.28);
+        final speed = sqrt(vx * vx + vy * vy);
+        vx = cos(angle) * speed;
+        vy = sin(angle) * speed;
+      }
+
       setState(() {
         _targetTopLeft = Offset(nextX, nextY);
         _targetVelocity = Offset(vx, vy);
@@ -287,10 +291,12 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
   }
 
   bool _isTapOnTarget(Offset localPosition) {
-    if (_targetTopLeft == null) return false;
+    if (_targetTopLeft == null || _targetArenaRect == Rect.zero) return false;
+    if (!_targetArenaRect.contains(localPosition)) return false;
     final diameter = _targetDiameterFor(_difficulty);
+    final localInArena = localPosition - _targetArenaRect.topLeft;
     final center = _targetTopLeft! + Offset(diameter / 2, diameter / 2);
-    return (localPosition - center).distance <= diameter / 2;
+    return (localInArena - center).distance <= diameter / 2;
   }
 
   void _registerHit() {
@@ -349,11 +355,7 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
         break;
 
       case _Phase.roundResult:
-        // Player tapped to skip the auto-advance countdown
-        _waitTimer?.cancel();
-        _stopTargetMovement();
-        setState(() => _phase = _Phase.waiting);
-        _scheduleReady();
+        // Keep result visible for at least 1 second.
         break;
 
       case _Phase.config:
@@ -540,36 +542,16 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
       child: Container(
         width: double.infinity,
         height: double.infinity,
-        color: AppColors.error.withValues(alpha: 0.08),
+        color: AppColors.error.withValues(alpha: 0.06),
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.error.withValues(alpha: 0.15),
-                  border: Border.all(color: AppColors.error, width: 2),
-                ),
-                child: const Icon(Icons.hourglass_empty_rounded,
-                    color: AppColors.error, size: 48),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                tr(context, 'انتظر اللون الأخضر...', 'Wait for green...',
-                    '等待变绿...'),
-                style: AppTypography.headingMedium
-                    .copyWith(color: AppColors.error),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                tr(context, 'لا تضغط الآن!', "Don't tap yet!", '先不要点击！'),
-                style: AppTypography.bodyMedium
-                    .copyWith(color: AppColors.textSecondary),
-              ),
-            ],
+          child: _buildStateCard(
+            icon: Icons.hourglass_empty_rounded,
+            accent: AppColors.error,
+            title: tr(context, 'انتظر اللون الأخضر...', 'Wait for green...',
+                '等待变绿...'),
+            subtitle: tr(context, 'لا تضغط الآن!', "Don't tap yet!", '先不要点击！'),
+            footer: tr(context, 'أي ضغط مبكر سيعيد الجولة',
+                'Early tap resets round', '提前点击会重置本轮'),
           ),
         ),
       ),
@@ -583,30 +565,60 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
       child: Container(
         width: double.infinity,
         height: double.infinity,
-        color: AppColors.success.withValues(alpha: 0.15),
+        color: AppColors.success.withValues(alpha: 0.08),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final area = Size(constraints.maxWidth, constraints.maxHeight);
-            _maybeInitTarget(area);
+            const horizontalPadding = 20.0;
+            const topSectionHeight = 150.0;
+            const bottomPadding = 28.0;
+            final arenaRect = Rect.fromLTWH(
+              horizontalPadding,
+              topSectionHeight,
+              max(0, constraints.maxWidth - horizontalPadding * 2),
+              max(0, constraints.maxHeight - topSectionHeight - bottomPadding),
+            );
+            _maybeInitTarget(arenaRect);
             final diameter = _targetDiameterFor(_difficulty);
 
             return Stack(
               children: [
                 Positioned(
-                  top: 40,
+                  top: 24,
                   left: 0,
                   right: 0,
                   child: Column(
                     children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceElevated,
+                          borderRadius: BorderRadius.circular(999),
+                          border:
+                              Border.all(color: AppColors.border, width: 0.8),
+                        ),
+                        child: Text(
+                          tr(
+                            context,
+                            'الجولة ${(_currentRound + 1).toArabicDigits()} / ${_totalRounds.toArabicDigits()}',
+                            'Round ${_currentRound + 1} / $_totalRounds',
+                            '第 ${_currentRound + 1} / $_totalRounds 轮',
+                          ),
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       Text(
                         _readyPrompt(context),
-                        style: AppTypography.displayLarge.copyWith(
+                        style: AppTypography.headingLarge.copyWith(
                           color: AppColors.success,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
                         _usesTargetCircle
                             ? tr(
@@ -628,8 +640,33 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
                     ],
                   ),
                 ),
+                Positioned(
+                  left: arenaRect.left,
+                  top: arenaRect.top,
+                  width: arenaRect.width,
+                  height: arenaRect.height,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.surfaceElevated.withValues(alpha: 0.9),
+                          AppColors.surface.withValues(alpha: 0.75),
+                        ],
+                      ),
+                      border: Border.all(
+                        color: AppColors.success.withValues(alpha: 0.35),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                ),
                 if (!_usesTargetCircle)
-                  Center(
+                  Positioned(
+                    left: arenaRect.left + (arenaRect.width - diameter) / 2,
+                    top: arenaRect.top + (arenaRect.height - diameter) / 2,
                     child: _ReactionTargetCircle(
                       diameter: diameter,
                       color: AppColors.success,
@@ -638,8 +675,8 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
                   ),
                 if (_usesTargetCircle && _targetTopLeft != null)
                   Positioned(
-                    left: _targetTopLeft!.dx,
-                    top: _targetTopLeft!.dy,
+                    left: arenaRect.left + _targetTopLeft!.dx,
+                    top: arenaRect.top + _targetTopLeft!.dy,
                     child: _ReactionTargetCircle(
                       diameter: diameter,
                       color: AppColors.success,
@@ -663,27 +700,16 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
       child: Container(
         width: double.infinity,
         height: double.infinity,
-        color: AppColors.warning.withValues(alpha: 0.08),
+        color: AppColors.warning.withValues(alpha: 0.06),
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.warning_amber_rounded,
-                  color: AppColors.warning, size: 72),
-              const SizedBox(height: 24),
-              Text(
-                tr(context, 'مبكر جداً!', 'Too early!', '太早了！'),
-                style: AppTypography.headingMedium
-                    .copyWith(color: AppColors.warning),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                tr(context, 'اضغط للمحاولة مرة أخرى', 'Tap to try again',
-                    '点击重试'),
-                style: AppTypography.bodyMedium
-                    .copyWith(color: AppColors.textSecondary),
-              ),
-            ],
+          child: _buildStateCard(
+            icon: Icons.warning_amber_rounded,
+            accent: AppColors.warning,
+            title: tr(context, 'مبكر جداً!', 'Too early!', '太早了！'),
+            subtitle: tr(
+                context, 'اضغط للمحاولة مرة أخرى', 'Tap to try again', '点击重试'),
+            footer: tr(context, 'انتظر الإشارة الخضراء أولاً',
+                'Wait for the green signal first', '请先等待绿色信号'),
           ),
         ),
       ),
@@ -691,54 +717,124 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
   }
 
   Widget _buildRoundResult(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _onTap,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              useArabicDigits(context)
-                  ? _lastMs.toInt().toArabicDigits()
-                  : '${_lastMs.toInt()}',
-              style: AppTypography.displayLarge.copyWith(
-                color: AppColors.reaction,
-                fontSize: 72,
-                fontWeight: FontWeight.w800,
-              ),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.border, width: 1),
             ),
-            Text(
-              tr(context, 'مللي ثانية', 'ms', '毫秒'),
-              style: AppTypography.headingMedium.copyWith(
-                color: AppColors.reaction,
-              ),
-            ),
-            const SizedBox(height: 32),
-            ..._roundMs.asMap().entries.map((entry) {
-              final idx = entry.key;
-              final ms = entry.value;
-              final isLast = idx == _roundMs.length - 1;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  tr(context, 'نتيجة الجولة', 'Round Result', '本轮结果'),
+                  style: AppTypography.labelLarge
+                      .copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 8),
+                Text(
                   useArabicDigits(context)
-                      ? '${(idx + 1).toArabicDigits()}: ${ms.toInt().toArabicDigits()} مللي ثانية'
-                      : 'Round ${idx + 1}: ${ms.toInt()} ms',
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: isLast
-                        ? AppColors.textPrimary
-                        : AppColors.textSecondary,
+                      ? _lastMs.toInt().toArabicDigits()
+                      : '${_lastMs.toInt()}',
+                  style: AppTypography.displayLarge.copyWith(
+                    color: AppColors.reaction,
+                    fontSize: 58,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-              );
-            }),
-            const SizedBox(height: 32),
-            Text(
-              tr(context, 'اضغط للمتابعة', 'Tap to continue', '点击继续'),
-              style: AppTypography.caption,
+                Text(
+                  tr(context, 'مللي ثانية', 'ms', '毫秒'),
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ..._roundMs.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final ms = entry.value;
+                  final isLast = idx == _roundMs.length - 1;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1),
+                    child: Text(
+                      useArabicDigits(context)
+                          ? '${tr(context, 'جولة', 'Round', '第')}${(idx + 1).toArabicDigits()}: ${ms.toInt().toArabicDigits()} ${tr(context, 'مللي ثانية', 'ms', '毫秒')}'
+                          : 'Round ${idx + 1}: ${ms.toInt()} ms',
+                      style: AppTypography.bodySmall.copyWith(
+                        color: isLast
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
+                        fontWeight: isLast ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 10),
+                Text(
+                  tr(
+                    context,
+                    'الانتقال تلقائياً للجولة التالية...',
+                    'Next round starts automatically...',
+                    '即将自动进入下一轮...',
+                  ),
+                  style: AppTypography.caption,
+                ),
+              ],
             ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStateCard({
+    required IconData icon,
+    required Color accent,
+    required String title,
+    required String subtitle,
+    required String footer,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceElevated,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border, width: 1),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: accent, size: 44),
+              const SizedBox(height: 14),
+              Text(
+                title,
+                style: AppTypography.headingSmall.copyWith(color: accent),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                subtitle,
+                style: AppTypography.bodyMedium
+                    .copyWith(color: AppColors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                footer,
+                style: AppTypography.caption,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );

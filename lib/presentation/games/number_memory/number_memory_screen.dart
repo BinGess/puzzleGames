@@ -80,8 +80,8 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
           tr(context, 'وقت أطول للحفظ', 'Longer memorize window', '记忆时间更充裕'),
         _NumberMemoryDifficulty.medium =>
           tr(context, 'تحدٍ متوازن', 'Balanced challenge', '平衡挑战'),
-        _NumberMemoryDifficulty.hard => tr(context, 'زمن حفظ أقصر ٣→٢ث',
-            'Tighter memorize window (3s -> 2s)', '更短记忆时间（3秒->2秒）'),
+        _NumberMemoryDifficulty.hard => tr(context, 'زمن حفظ أقصر (حوالي ٢–٣ث)',
+            'Short memorize window (about 2-3s)', '更短记忆时间（约2-3秒）'),
       };
 
   String _memorizeWindowLabel(
@@ -91,8 +91,8 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
           tr(context, 'حفظ ٢.٨–٦.٨ث', 'Memorize 2.8-6.8s', '记忆 2.8-6.8 秒'),
         _NumberMemoryDifficulty.medium =>
           tr(context, 'حفظ ٢.٢–٥.٦ث', 'Memorize 2.2-5.6s', '记忆 2.2-5.6 秒'),
-        _NumberMemoryDifficulty.hard => tr(
-            context, 'حفظ ٣.٠→٢.٠ث', 'Memorize 3.0 -> 2.0s', '记忆 3.0 -> 2.0 秒'),
+        _NumberMemoryDifficulty.hard =>
+          tr(context, 'حفظ حوالي ٢–٣ث', 'Memorize about 2-3s', '记忆约 2-3 秒'),
       };
 
   String _difficultyMeta(

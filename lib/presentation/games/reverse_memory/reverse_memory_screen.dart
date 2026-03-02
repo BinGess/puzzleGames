@@ -75,8 +75,8 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
             'Calmer pace, shorter strings', '节奏更稳，起始更短'),
         _ReverseDifficulty.medium => tr(context, 'ضغط متوازن مع تقلص الوقت',
             'Balanced pressure with shrinking time', '平衡压力，时间逐步收紧'),
-        _ReverseDifficulty.hard => tr(context, 'زمن حفظ أقصر ٣→٢ث',
-            'Tighter memorize window (3s -> 2s)', '更短记忆时间（3秒->2秒）'),
+        _ReverseDifficulty.hard => tr(context, 'زمن حفظ أقصر (حوالي ٢–٣ث)',
+            'Short memorize window (about 2-3s)', '更短记忆时间（约2-3秒）'),
       };
 
   String _memorizeWindowLabel(
@@ -86,8 +86,8 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
           tr(context, 'حفظ ٤.٨–٢.٤ث', 'Memorize 4.8-2.4s', '记忆 4.8-2.4 秒'),
         _ReverseDifficulty.medium =>
           tr(context, 'حفظ ٤.٢–١.٦ث', 'Memorize 4.2-1.6s', '记忆 4.2-1.6 秒'),
-        _ReverseDifficulty.hard => tr(
-            context, 'حفظ ٣.٠→٢.٠ث', 'Memorize 3.0 -> 2.0s', '记忆 3.0 -> 2.0 秒'),
+        _ReverseDifficulty.hard =>
+          tr(context, 'حفظ حوالي ٢–٣ث', 'Memorize about 2-3s', '记忆约 2-3 秒'),
       };
 
   String _difficultyMeta(BuildContext context, _ReverseDifficulty difficulty) {
