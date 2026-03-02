@@ -9,9 +9,7 @@ class ScoreRepository {
 
   /// Get all scores for a specific game, sorted by timestamp descending
   List<ScoreRecord> getScoresForGame(String gameId) {
-    return scoresBox.values
-        .where((s) => s.gameId == gameId)
-        .toList()
+    return scoresBox.values.where((s) => s.gameId == gameId).toList()
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
 
@@ -21,14 +19,47 @@ class ScoreRepository {
     return all.take(n).toList();
   }
 
-  /// Get the best score for a game (lowest for time-based, highest for count-based)
-  ScoreRecord? getBestScore(String gameId, {bool lowerIsBetter = false}) {
-    final all = getScoresForGame(gameId);
+  /// Get the best score for a game (optionally scoped to one difficulty).
+  /// lowerIsBetter=true for time/move games, false for count/length games.
+  ScoreRecord? getBestScore(
+    String gameId, {
+    bool lowerIsBetter = false,
+    int? difficulty,
+  }) {
+    final all = difficulty == null
+        ? getScoresForGame(gameId)
+        : getScoresForGame(gameId)
+            .where((s) => s.difficulty == difficulty)
+            .toList(growable: false);
     if (all.isEmpty) return null;
     if (lowerIsBetter) {
       return all.reduce((a, b) => a.score < b.score ? a : b);
     }
     return all.reduce((a, b) => a.score > b.score ? a : b);
+  }
+
+  /// Highest played difficulty for a game.
+  int? getHighestPlayedDifficulty(String gameId) {
+    final all = getScoresForGame(gameId);
+    if (all.isEmpty) return null;
+    return all.fold<int>(
+      all.first.difficulty,
+      (maxDiff, s) => s.difficulty > maxDiff ? s.difficulty : maxDiff,
+    );
+  }
+
+  /// Best score from the highest played difficulty for a game.
+  ScoreRecord? getBestScoreAtHighestDifficulty(
+    String gameId, {
+    bool lowerIsBetter = false,
+  }) {
+    final highestDifficulty = getHighestPlayedDifficulty(gameId);
+    if (highestDifficulty == null) return null;
+    return getBestScore(
+      gameId,
+      lowerIsBetter: lowerIsBetter,
+      difficulty: highestDifficulty,
+    );
   }
 
   /// Get all scores across all games

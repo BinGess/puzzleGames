@@ -237,7 +237,7 @@ final bestScoreProvider = Provider.family<ScoreRecord?, String>((ref, gameId) {
     (g) => g.id == gameId,
     orElse: () => GameType.schulteGrid,
   );
-  return ref.read(scoreRepoProvider).getBestScore(
+  return ref.read(scoreRepoProvider).getBestScoreAtHighestDifficulty(
         gameId,
         lowerIsBetter: gameType.lowerIsBetter,
       );

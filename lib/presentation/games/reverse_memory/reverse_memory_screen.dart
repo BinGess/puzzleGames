@@ -207,23 +207,28 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
 
   Future<void> _finishGame() async {
     _timer?.cancel();
+    final selectedDifficulty = _difficultyValue(_difficulty);
     final record = ScoreRecord(
       gameId: GameType.reverseMemory.id,
       score: _maxReached.toDouble(),
       timestamp: DateTime.now(),
-      difficulty: _difficultyValue(_difficulty),
+      difficulty: selectedDifficulty,
       metadata: {
         'maxLength': _maxReached,
         'targetLength': _goalLengthFor(_difficulty),
         'clearedChallenge': _clearedChallenge,
-        'selectedDifficulty': _difficultyValue(_difficulty),
+        'selectedDifficulty': selectedDifficulty,
       },
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
     await ref.read(abilityProvider.notifier).recompute();
 
-    final best = ref.read(bestScoreProvider(GameType.reverseMemory.id));
+    final best = ref.read(scoreRepoProvider).getBestScore(
+          GameType.reverseMemory.id,
+          lowerIsBetter: false,
+          difficulty: selectedDifficulty,
+        );
     final isNewRecord = best == null || _maxReached >= best.score;
     final won = _clearedChallenge;
     final performance =
@@ -232,7 +237,7 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
       ref,
       gameType: GameType.reverseMemory,
       won: won,
-      difficulty: _difficultyValue(_difficulty),
+      difficulty: selectedDifficulty,
       isNewRecord: isNewRecord,
       performance: performance.toDouble(),
     );
@@ -244,6 +249,8 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
       'metric': 'length',
       'lowerIsBetter': false,
       'isNewRecord': isNewRecord,
+      'bestByDifficulty': true,
+      'difficulty': selectedDifficulty,
       'challengeTip': _clearedChallenge
           ? tr(
               context,

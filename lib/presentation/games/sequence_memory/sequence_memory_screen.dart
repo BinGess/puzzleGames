@@ -100,6 +100,20 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
         _SequenceDifficulty.hard => const Duration(milliseconds: 320),
       };
 
+  double _minDiffRatioFor(_SequenceDifficulty difficulty) =>
+      switch (difficulty) {
+        _SequenceDifficulty.easy => 0.50,
+        _SequenceDifficulty.medium => 0.62,
+        _SequenceDifficulty.hard => 0.74,
+      };
+
+  int _maxCommonPrefixFor(_SequenceDifficulty difficulty) =>
+      switch (difficulty) {
+        _SequenceDifficulty.easy => 2,
+        _SequenceDifficulty.medium => 1,
+        _SequenceDifficulty.hard => 0,
+      };
+
   String _difficultyLabel(
           BuildContext context, _SequenceDifficulty difficulty) =>
       switch (difficulty) {
@@ -150,6 +164,66 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
     super.dispose();
   }
 
+  List<int> _generateRandomSequence(int length) {
+    if (length <= 0) return const [];
+    final seq = <int>[];
+    for (var i = 0; i < length; i++) {
+      var candidate = _rng.nextInt(_gridCells);
+      // Avoid immediate repeats to make path less predictable.
+      if (seq.isNotEmpty && candidate == seq.last) {
+        candidate =
+            (candidate + 1 + _rng.nextInt(max(1, _gridCells - 1))) % _gridCells;
+      }
+      seq.add(candidate);
+    }
+    return seq;
+  }
+
+  int _commonPrefixLength(List<int> a, List<int> b) {
+    final n = min(a.length, b.length);
+    var prefix = 0;
+    while (prefix < n && a[prefix] == b[prefix]) {
+      prefix++;
+    }
+    return prefix;
+  }
+
+  bool _isDiverseEnough(List<int> candidate, List<int> previous) {
+    final n = min(candidate.length, previous.length);
+    if (n <= 0) return true;
+    final sameAtSameIndex = List.generate(n, (i) => i)
+        .where((i) => candidate[i] == previous[i])
+        .length;
+    final changed = n - sameAtSameIndex;
+    final minChanged = (n * _minDiffRatioFor(_difficulty)).ceil();
+    final prefix = _commonPrefixLength(candidate, previous);
+    return changed >= minChanged && prefix <= _maxCommonPrefixFor(_difficulty);
+  }
+
+  List<int> _generateNextSequence({
+    required int length,
+    List<int>? previous,
+  }) {
+    if (previous == null || previous.isEmpty) {
+      return _generateRandomSequence(length);
+    }
+    // Retry until we get a sequence with meaningful trajectory differences.
+    for (var i = 0; i < 120; i++) {
+      final candidate = _generateRandomSequence(length);
+      if (_isDiverseEnough(candidate, previous)) {
+        return candidate;
+      }
+    }
+    // Fallback: still ensure not identical prefix growth.
+    var fallback = _generateRandomSequence(length);
+    if (_commonPrefixLength(fallback, previous) >
+        _maxCommonPrefixFor(_difficulty)) {
+      fallback[0] =
+          (fallback[0] + 1 + _rng.nextInt(max(1, _gridCells - 1))) % _gridCells;
+    }
+    return fallback;
+  }
+
   Future<void> _startGame() async {
     final canStart = await GameEconomyHelper.consumeEntryCost(
       context,
@@ -162,7 +236,7 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
 
     setState(() {
       _gridSize = gridSize;
-      _sequence = List.generate(startLength, (_) => _rng.nextInt(_gridCells));
+      _sequence = _generateNextSequence(length: startLength);
       _maxLength = 0;
       _inputIndex = 0;
       _phase = _SeqPhase.config;
@@ -246,8 +320,13 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
 
         if (_inputIndex >= _sequence.length) {
           // Correct! Extend sequence
+          final previousSequence = List<int>.from(_sequence);
+          final nextLength = previousSequence.length + 1;
           _maxLength = _sequence.length;
-          _sequence.add(_rng.nextInt(_gridCells));
+          _sequence = _generateNextSequence(
+            length: nextLength,
+            previous: previousSequence,
+          );
           _inputIndex = 0;
           setState(() {
             _phase = _SeqPhase.feedback;
@@ -274,14 +353,15 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
 
   Future<void> _finishGame() async {
     _playbackTimer?.cancel();
+    final selectedDifficulty = _difficultyValue(_difficulty);
     final record = ScoreRecord(
       gameId: GameType.sequenceMemory.id,
       score: _maxLength.toDouble(),
       timestamp: DateTime.now(),
-      difficulty: _difficultyValue(_difficulty),
+      difficulty: selectedDifficulty,
       metadata: {
         'maxLength': _maxLength,
-        'selectedDifficulty': _difficultyValue(_difficulty),
+        'selectedDifficulty': selectedDifficulty,
         'gridSize': _gridSize,
         'hardDecoy': _difficulty == _SequenceDifficulty.hard,
         'startLength': _startLengthFor(_difficulty),
@@ -292,7 +372,11 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
     await ref.read(scoreRepoProvider).saveScore(record);
     await ref.read(abilityProvider.notifier).recompute();
 
-    final best = ref.read(bestScoreProvider(GameType.sequenceMemory.id));
+    final best = ref.read(scoreRepoProvider).getBestScore(
+          GameType.sequenceMemory.id,
+          lowerIsBetter: false,
+          difficulty: selectedDifficulty,
+        );
     final isNewRecord = best == null || _maxLength >= best.score;
     final won = _maxLength >= _goalLengthFor(_difficulty);
     final performance =
@@ -301,7 +385,7 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
       ref,
       gameType: GameType.sequenceMemory,
       won: won,
-      difficulty: _difficultyValue(_difficulty),
+      difficulty: selectedDifficulty,
       isNewRecord: isNewRecord,
       performance: performance.toDouble(),
     );
@@ -313,6 +397,8 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
       'metric': 'length',
       'lowerIsBetter': false,
       'isNewRecord': isNewRecord,
+      'bestByDifficulty': true,
+      'difficulty': selectedDifficulty,
       'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
       'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
       'economyWon': economy.won,

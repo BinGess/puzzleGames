@@ -119,25 +119,30 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen> {
     setState(() => _gameActive = false);
 
     final elapsedMs = _stopwatch.elapsedMilliseconds.toDouble();
+    final difficultyTier = _gridSize - 2; // 1=3x3, 2=4x4, 3=5x5
     final record = ScoreRecord(
       gameId: GameType.schulteGrid.id,
       score: elapsedMs,
       timestamp: DateTime.now(),
-      difficulty: _gridSize - 2, // 1=3x3, 2=4x4, 3=5x5
+      difficulty: difficultyTier,
       metadata: {'gridSize': _gridSize},
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
     await ref.read(abilityProvider.notifier).recompute();
 
-    final best = ref.read(bestScoreProvider(GameType.schulteGrid.id));
+    final best = ref.read(scoreRepoProvider).getBestScore(
+          GameType.schulteGrid.id,
+          lowerIsBetter: true,
+          difficulty: difficultyTier,
+        );
     final isNewRecord = best == null || elapsedMs <= best.score;
     final performance = (1 - ((elapsedMs - 10000) / 40000)).clamp(0.0, 1.0);
     final economy = await GameEconomyHelper.settleGame(
       ref,
       gameType: GameType.schulteGrid,
       won: true,
-      difficulty: _gridSize - 2,
+      difficulty: difficultyTier,
       isNewRecord: isNewRecord,
       performance: performance.toDouble(),
     );
@@ -149,6 +154,8 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen> {
       'metric': 'time',
       'lowerIsBetter': true,
       'isNewRecord': isNewRecord,
+      'bestByDifficulty': true,
+      'difficulty': difficultyTier,
       'gridSize': _gridSize,
       'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
       'economyTip': GameEconomyHelper.buildRewardTip(context, economy),

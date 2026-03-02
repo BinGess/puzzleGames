@@ -28,9 +28,9 @@ import '../providers/app_providers.dart';
 // Approximates normal distribution; human average LQ ≈ 50 → 44th percentile
 const List<(double, int)> _kPercentileTable = [
   (0, 1),
-  (10, 3),
-  (20, 8),
-  (30, 16),
+  (10, 1),
+  (20, 4),
+  (30, 11),
   (40, 28),
   (50, 44),
   (60, 60),
@@ -89,16 +89,342 @@ double _stdDevScores(List<ScoreRecord> records, double mean) {
   return math.sqrt(variance);
 }
 
+double _clamp01(double v) => v.clamp(0.0, 1.0).toDouble();
+
+double? _metaNum(Map<String, dynamic> metadata, String key) {
+  final raw = metadata[key];
+  if (raw is num) return raw.toDouble();
+  return null;
+}
+
+bool _metaBool(Map<String, dynamic> metadata, String key) {
+  final raw = metadata[key];
+  return raw is bool ? raw : false;
+}
+
+double _progressFromStart({
+  required double score,
+  required double start,
+  required double goal,
+}) {
+  final baseline = start - 1;
+  return _clamp01((score - baseline) / (goal - baseline).clamp(1, 99));
+}
+
+double _startBaselineForGame({
+  required GameType gameType,
+  required int difficulty,
+  required Map<String, dynamic> metadata,
+}) {
+  final tier = difficulty.clamp(1, 4);
+  return switch (gameType) {
+    GameType.numberMemory => _metaNum(metadata, 'startLength') ??
+        switch (tier) {
+          1 => 3.0,
+          2 => 5.0,
+          _ => 7.0,
+        },
+    GameType.sequenceMemory => _metaNum(metadata, 'startLength') ??
+        switch (tier) {
+          1 => 2.0,
+          2 => 3.0,
+          _ => 4.0,
+        },
+    GameType.numberMatrix => _metaNum(metadata, 'startLevel') ??
+        switch (tier) {
+          1 => 3.0,
+          2 => 4.0,
+          _ => 5.0,
+        },
+    GameType.reverseMemory => _metaNum(metadata, 'startLength') ??
+        switch (tier) {
+          1 => 3.0,
+          2 => 4.0,
+          _ => 5.0,
+        },
+    GameType.visualMemory => _metaNum(metadata, 'startLit') ??
+        switch (tier) {
+          1 => 3.0,
+          2 => 5.0,
+          _ => 6.0,
+        },
+    GameType.stroopTest => 1.0,
+    _ => 0.0,
+  };
+}
+
+bool _isFirstStepFailure({
+  required GameType gameType,
+  required double currentScore,
+  required bool lowerIsBetter,
+  required int difficulty,
+  required ScoreRecord? currentRecord,
+}) {
+  if (lowerIsBetter) return false;
+  final metadata = currentRecord?.metadata ?? const <String, dynamic>{};
+  if (gameType == GameType.stroopTest) {
+    final correct = _metaNum(metadata, 'correct') ?? currentScore;
+    return correct <= 0;
+  }
+  final start = _startBaselineForGame(
+    gameType: gameType,
+    difficulty: difficulty,
+    metadata: metadata,
+  );
+  if (start <= 0) return currentScore <= 1e-6;
+  return currentScore <= (start - 1);
+}
+
+bool _isCatastrophicRun({
+  required GameType gameType,
+  required double currentScore,
+  required bool lowerIsBetter,
+  required int difficulty,
+  required ScoreRecord? currentRecord,
+  required double runPerformance,
+}) {
+  final metadata = currentRecord?.metadata ?? const <String, dynamic>{};
+  if (_metaBool(metadata, 'antiCheatFailed')) return true;
+  if (_isFirstStepFailure(
+    gameType: gameType,
+    currentScore: currentScore,
+    lowerIsBetter: lowerIsBetter,
+    difficulty: difficulty,
+    currentRecord: currentRecord,
+  )) {
+    return true;
+  }
+  if (!lowerIsBetter && currentScore <= 1e-6) return true;
+  if (runPerformance <= 0.04) return true;
+  if (gameType == GameType.stroopTest) {
+    final total = _metaNum(metadata, 'total') ?? 0;
+    final correct = _metaNum(metadata, 'correct') ?? currentScore;
+    if (total > 0 && (correct / total) <= 0.05) return true;
+  }
+  return false;
+}
+
+ScoreRecord? _pickCurrentRecord({
+  required List<ScoreRecord> history,
+  required double currentScore,
+  required int currentDifficulty,
+}) {
+  if (history.isEmpty) return null;
+  final sameDifficulty = history
+      .where((r) => r.difficulty == currentDifficulty)
+      .toList(growable: false);
+  final pool = sameDifficulty.isNotEmpty ? sameDifficulty : history;
+  final sorted = List<ScoreRecord>.of(pool)
+    ..sort((a, b) {
+      final da = (a.score - currentScore).abs();
+      final db = (b.score - currentScore).abs();
+      if ((da - db).abs() > 1e-6) return da.compareTo(db);
+      return b.timestamp.compareTo(a.timestamp);
+    });
+  return sorted.firstOrNull;
+}
+
+double _difficultyPerformanceBoost(int difficulty) {
+  final tier = difficulty.clamp(1, 4);
+  return ((tier - 1) * 0.04).toDouble();
+}
+
+double _runPerformanceScore({
+  required GameType gameType,
+  required double score,
+  required int difficulty,
+  required ScoreRecord? currentRecord,
+}) {
+  final metadata = currentRecord?.metadata ?? const <String, dynamic>{};
+  switch (gameType) {
+    case GameType.schulteGrid:
+      final targetMs = switch (difficulty) {
+        1 => 14000.0,
+        2 => 24000.0,
+        _ => 36000.0 + (difficulty - 3) * 10000.0,
+      };
+      final spanMs = switch (difficulty) {
+        1 => 26000.0,
+        2 => 34000.0,
+        _ => 48000.0 + (difficulty - 3) * 12000.0,
+      };
+      return _clamp01(1 - ((score - targetMs) / spanMs));
+
+    case GameType.reactionTime:
+      final targetMs = switch (difficulty) {
+        1 => 320.0,
+        2 => 280.0,
+        _ => math.max(170.0, 240.0 - (difficulty - 3) * 20.0),
+      };
+      final spanMs = switch (difficulty) {
+        1 => 220.0,
+        2 => 180.0,
+        _ => math.max(110.0, 150.0 - (difficulty - 3) * 10.0),
+      };
+      return _clamp01(1 - ((score - targetMs) / spanMs));
+
+    case GameType.numberMemory:
+      final start = _metaNum(metadata, 'startLength') ??
+          switch (difficulty) {
+            1 => 3.0,
+            2 => 5.0,
+            _ => 7.0,
+          };
+      final goal = _metaNum(metadata, 'goalLength') ??
+          switch (difficulty) {
+            1 => 8.0,
+            2 => 12.0,
+            _ => 16.0 + (difficulty - 3) * 2.0,
+          };
+      return _progressFromStart(score: score, start: start, goal: goal);
+
+    case GameType.stroopTest:
+      final total = _metaNum(metadata, 'total') ??
+          switch (difficulty) {
+            1 => 20.0,
+            2 => 28.0,
+            _ => 36.0 + (difficulty - 3) * 8.0,
+          };
+      final correct = _metaNum(metadata, 'correct') ?? score;
+      final acc = total > 0
+          ? _clamp01(correct / total)
+          : _clamp01(currentRecord?.accuracy ?? 0.0);
+      final avgMsRaw = _metaNum(metadata, 'avgMs') ?? 1100.0;
+      final avgMs = avgMsRaw <= 0 ? 1800.0 : avgMsRaw;
+      final speed = _clamp01(1 - ((avgMs - 700.0) / 1400.0));
+      final timeouts = _metaNum(metadata, 'timeouts') ?? 0.0;
+      final timeoutPenalty =
+          ((timeouts / math.max(1.0, total * 0.25)) * 0.12).clamp(0.0, 0.12);
+      return _clamp01(acc * 0.85 + speed * 0.15 - timeoutPenalty);
+
+    case GameType.visualMemory:
+      final gridSize = (_metaNum(metadata, 'gridSize')?.round()) ??
+          (difficulty == 1 ? 4 : 5);
+      final startLit = _metaNum(metadata, 'startLit') ??
+          switch (difficulty) {
+            1 => 3.0,
+            2 => 5.0,
+            _ => 6.0,
+          };
+      final maxCells = _metaNum(metadata, 'maxCells') ?? score;
+      final maxPossible = (gridSize * gridSize - 1).clamp(1, 99).toDouble();
+      return _progressFromStart(
+        score: maxCells,
+        start: startLit,
+        goal: maxPossible,
+      );
+
+    case GameType.sequenceMemory:
+      final start = _metaNum(metadata, 'startLength') ??
+          switch (difficulty) {
+            1 => 2.0,
+            2 => 3.0,
+            _ => 4.0,
+          };
+      final goal = _metaNum(metadata, 'goalLength') ??
+          switch (difficulty) {
+            1 => 7.0,
+            2 => 9.0,
+            _ => 11.0 + (difficulty - 3) * 2.0,
+          };
+      return _progressFromStart(score: score, start: start, goal: goal);
+
+    case GameType.numberMatrix:
+      final start = _metaNum(metadata, 'startLevel') ??
+          switch (difficulty) {
+            1 => 3.0,
+            2 => 4.0,
+            _ => 5.0,
+          };
+      final goal = _metaNum(metadata, 'goalLevel') ??
+          switch (difficulty) {
+            1 => 7.0,
+            2 => 9.0,
+            _ => 11.0 + (difficulty - 3) * 2.0,
+          };
+      return _progressFromStart(score: score, start: start, goal: goal);
+
+    case GameType.reverseMemory:
+      final start = _metaNum(metadata, 'startLength') ??
+          switch (difficulty) {
+            1 => 3.0,
+            2 => 4.0,
+            _ => 5.0,
+          };
+      final goal = _metaNum(metadata, 'targetLength') ??
+          _metaNum(metadata, 'goalLength') ??
+          switch (difficulty) {
+            1 => 9.0,
+            2 => 12.0,
+            _ => 14.0 + (difficulty - 3) * 2.0,
+          };
+      return _progressFromStart(score: score, start: start, goal: goal);
+
+    case GameType.slidingPuzzle:
+      final gridSize =
+          (_metaNum(metadata, 'gridSize')?.round()) ?? (difficulty + 2);
+      final moveTarget = switch (gridSize) {
+        3 => 45.0,
+        4 => 140.0,
+        _ => 260.0 + (gridSize - 5) * 120.0,
+      };
+      return _clamp01(1 - ((score - moveTarget) / (moveTarget * 1.2)));
+
+    case GameType.towerOfHanoi:
+      final diskCount =
+          (_metaNum(metadata, 'diskCount')?.round()) ?? (difficulty + 2);
+      final optimalMoves = ((1 << diskCount) - 1).toDouble();
+      return _clamp01(optimalMoves / score.clamp(1.0, 99999.0));
+  }
+}
+
+double _performanceToPercentile(double performance01) {
+  final curved = math.pow(_clamp01(performance01), 0.84).toDouble();
+  return (1 + curved * 98).clamp(1.0, 99.0).toDouble();
+}
+
 _PercentileEstimate _estimatePercentiles({
   required GameType gameType,
   required double lq,
   required double currentScore,
   required bool lowerIsBetter,
   required List<ScoreRecord> history,
+  required int? difficulty,
   required int? age,
   required int totalSessions,
 }) {
   final baseGlobal = _lqToPercentile(lq);
+  final currentDifficulty =
+      difficulty ?? (history.isNotEmpty ? history.first.difficulty : 1);
+  final currentRecord = _pickCurrentRecord(
+    history: history,
+    currentScore: currentScore,
+    currentDifficulty: currentDifficulty,
+  );
+  final runPerformance = (_runPerformanceScore(
+            gameType: gameType,
+            score: currentScore,
+            difficulty: currentDifficulty,
+            currentRecord: currentRecord,
+          ) +
+          _difficultyPerformanceBoost(currentDifficulty))
+      .clamp(0.0, 1.0)
+      .toDouble();
+  var absolutePercentile = _performanceToPercentile(runPerformance);
+  if (_metaBool(currentRecord?.metadata ?? const {}, 'antiCheatFailed')) {
+    absolutePercentile = math.min(absolutePercentile, 8).toDouble();
+  }
+  final catastrophic = _isCatastrophicRun(
+    gameType: gameType,
+    currentScore: currentScore,
+    lowerIsBetter: lowerIsBetter,
+    difficulty: currentDifficulty,
+    currentRecord: currentRecord,
+    runPerformance: runPerformance,
+  );
+  if (catastrophic) {
+    return const _PercentileEstimate(global: 1, age: 1, confidence: 0);
+  }
   if (history.isEmpty) {
     return _PercentileEstimate(
       global: baseGlobal,
@@ -107,7 +433,6 @@ _PercentileEstimate _estimatePercentiles({
     );
   }
 
-  final currentDifficulty = history.first.difficulty;
   final sameDifficulty = history
       .where((r) => r.difficulty == currentDifficulty)
       .toList(growable: false);
@@ -121,7 +446,7 @@ _PercentileEstimate _estimatePercentiles({
   final empirical =
       (((total - better) - (equal * 0.5)) / total * 100).round().clamp(1, 99);
 
-  double trendDelta = 0;
+  double trendDelta = 0.0;
   final recentPrev = pool.skip(1).take(5).toList(growable: false);
   if (recentPrev.length >= 3) {
     final prevAvg = _avgScores(recentPrev);
@@ -129,27 +454,69 @@ _PercentileEstimate _estimatePercentiles({
       final changeRatio = lowerIsBetter
           ? (prevAvg - currentScore) / prevAvg
           : (currentScore - prevAvg) / prevAvg;
-      trendDelta = (changeRatio * 40).clamp(-10.0, 10.0);
+      trendDelta = (changeRatio * 28).clamp(-6.0, 6.0);
     }
   }
 
-  double consistencyDelta = 0;
+  double consistencyDelta = 0.0;
   final recent = pool.take(6).toList(growable: false);
   if (recent.length >= 4) {
     final mean = _avgScores(recent);
     if (mean.abs() > 1e-6) {
       final cv = _stdDevScores(recent, mean) / mean.abs();
-      consistencyDelta = ((0.30 - cv) * 25).clamp(-4.0, 4.0);
+      consistencyDelta = ((0.30 - cv) * 20).clamp(-3.0, 3.0);
     }
   }
 
   final confidence = ((total - 1) / 14).clamp(0.0, 1.0).toDouble();
-  final blendWeight = 0.30 + 0.55 * confidence;
+  var historyWeight = 0.25 + 0.35 * confidence;
+  final absoluteWeight = 0.60 - 0.20 * confidence;
+  var lqWeight = 1 - historyWeight - absoluteWeight;
+  if (lqWeight < 0.05) {
+    historyWeight = (historyWeight - (0.05 - lqWeight)).clamp(0.15, 0.80);
+    lqWeight = 0.05;
+  }
+
   final modelPercentile =
       (empirical + trendDelta + consistencyDelta).clamp(1.0, 99.0);
-  var global = (baseGlobal * (1 - blendWeight) + modelPercentile * blendWeight)
+  var global = (baseGlobal * lqWeight +
+          modelPercentile * historyWeight +
+          absolutePercentile * absoluteWeight)
       .round()
       .clamp(1, 99);
+
+  if (runPerformance >= 0.85 && currentDifficulty >= 3) {
+    global = math.max(global, 75).toInt();
+  }
+  if (runPerformance <= 0.20) {
+    global = math.min(global, 45).toInt();
+  }
+  if (runPerformance <= 0.12) {
+    global = math.min(global, 22).toInt();
+  }
+  if (runPerformance <= 0.08) {
+    global = math.min(global, 12).toInt();
+  }
+  if (runPerformance <= 0.05) {
+    global = math.min(global, 5).toInt();
+  }
+  if (!lowerIsBetter && currentScore <= 1e-6) {
+    // Higher-is-better games with zero score should never appear as high percentile.
+    global = math.min(global, 8).toInt();
+  }
+  final accuracy = currentRecord?.accuracy;
+  if (accuracy != null) {
+    if (accuracy <= 0.05) {
+      global = math.min(global, 10).toInt();
+    } else if (accuracy < 0.35) {
+      global = math.min(global, 25).toInt();
+    } else if (accuracy < 0.55) {
+      global = math.min(global, 55).toInt();
+    }
+  }
+  if (_metaBool(currentRecord?.metadata ?? const {}, 'antiCheatFailed')) {
+    global = math.min(global, 10).toInt();
+  }
 
   // Tower of Hanoi has a known optimal move count: 2^n - 1.
   // If user solves at theoretical optimum, percentile should never look mediocre.
@@ -181,6 +548,11 @@ _PercentileEstimate _estimatePercentiles({
       (peerCentered + ageAdjust + (experienceAdjust * 0.5).round())
           .round()
           .clamp(1, 99);
+  if (global <= 10) {
+    agePercentile = math.min(agePercentile, 18).toInt();
+  } else if (global <= 20) {
+    agePercentile = math.min(agePercentile, 30).toInt();
+  }
   if (hanoiOptimal != null && currentScore <= hanoiOptimal + 1e-6) {
     agePercentile = math.max(agePercentile, 96).toInt();
   }
@@ -489,9 +861,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
     final profile = ref.watch(profileProvider);
     final gameScores = ref.watch(gameScoresProvider(_gameType.id));
     final allScoresCount = ref.read(scoreRepoProvider).getAllScores().length;
-    final bestByDifficulty = widget.data['bestByDifficulty'] as bool? ?? false;
     final scopedDifficulty = (widget.data['difficulty'] as num?)?.toInt();
-    final bestPool = (bestByDifficulty && scopedDifficulty != null)
+    final bestPool = (scopedDifficulty != null)
         ? gameScores
             .where((s) => s.difficulty == scopedDifficulty)
             .toList(growable: false)
@@ -508,6 +879,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
       currentScore: _score,
       lowerIsBetter: _gameType.lowerIsBetter,
       history: gameScores,
+      difficulty: scopedDifficulty,
       age: profile.age,
       totalSessions: allScoresCount,
     );
@@ -517,7 +889,6 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
     final challengeTip = widget.data['challengeTip'] as String?;
     final economyLabel = widget.data['economyLabel'] as String?;
     final economyTip = widget.data['economyTip'] as String?;
-    final economyWon = widget.data['economyWon'] as bool? ?? false;
     final economyCoins = (widget.data['economyCoins'] as num?)?.toInt() ?? 0;
     final economyXp = (widget.data['economyXp'] as num?)?.toInt() ?? 0;
     final economyLevel = (widget.data['economyLevel'] as num?)?.toInt();
@@ -569,7 +940,6 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
                               gapLabel: gapLabel,
                               economyLabel: economyLabel,
                               economyTip: economyTip,
-                              economyWon: economyWon,
                               economyCoins: economyCoins,
                               economyXp: economyXp,
                               economyLevel: economyLevel,
@@ -898,7 +1268,6 @@ class _ScoreCard extends StatelessWidget {
   final String? gapLabel;
   final String? economyLabel;
   final String? economyTip;
-  final bool economyWon;
   final int economyCoins;
   final int economyXp;
   final int? economyLevel;
@@ -914,7 +1283,6 @@ class _ScoreCard extends StatelessWidget {
     required this.gapLabel,
     required this.economyLabel,
     required this.economyTip,
-    required this.economyWon,
     required this.economyCoins,
     required this.economyXp,
     required this.economyLevel,
@@ -1018,7 +1386,7 @@ class _ScoreCard extends StatelessWidget {
             ],
             if (economyLabel != null) ...[
               const SizedBox(height: 8),
-              if (economyWon && (economyCoins > 0 || economyXp > 0))
+              if (economyCoins > 0 || economyXp > 0)
                 TweenAnimationBuilder<double>(
                   duration: const Duration(milliseconds: 950),
                   curve: Curves.easeOutCubic,
@@ -1041,13 +1409,23 @@ class _ScoreCard extends StatelessWidget {
                           ),
                           _RewardChip(
                             icon: Icons.bolt_rounded,
-                            text: '+$xpNow XP',
+                            text: tr(
+                              context,
+                              '+$xpNow خبرة',
+                              '+$xpNow XP',
+                              '+$xpNow 经验',
+                            ),
                             color: const Color(0xFF69C6FF),
                           ),
                           if (levelUp)
                             _RewardChip(
                               icon: Icons.workspace_premium_rounded,
-                              text: 'Lv.${economyLevel!}',
+                              text: tr(
+                                context,
+                                'المستوى ${economyLevel!}',
+                                'Lv.${economyLevel!}',
+                                '等级 ${economyLevel!}',
+                              ),
                               color: AppColors.sequenceMemory,
                             ),
                         ],
@@ -1343,9 +1721,9 @@ class _LQSection extends StatelessWidget {
             child: Text(
               tr(
                 context,
-                'تقدير مبني على نتائجك الأخيرة',
-                'Estimate based on your recent results',
-                '基于你最近成绩估算',
+                'التقدير يعتمد على نتيجة هذه الجولة + الصعوبة + الدقة + سجلك الأخير',
+                'Estimate uses this run + difficulty + accuracy + recent history',
+                '估算基于本局表现 + 难度 + 准确率 + 最近历史',
               ),
               style: AppTypography.caption.copyWith(
                 fontSize: 10.5,
@@ -1909,44 +2287,48 @@ class _SharePreviewSheetState extends State<_SharePreviewSheet> {
             // ── Header: drag handle + close button ──────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Centered drag handle
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(2),
+              child: SizedBox(
+                width: double.infinity,
+                height: 32,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Centered drag handle
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                  ),
-                  // Close button — top-right
-                  Positioned(
-                    right: 0,
-                    child: GestureDetector(
-                      onTap: () {
-                        Haptics.selection();
-                        Navigator.of(context).pop();
-                      },
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceElevated,
-                          shape: BoxShape.circle,
-                          border:
-                              Border.all(color: AppColors.border, width: 0.5),
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          color: AppColors.textSecondary,
-                          size: 16,
+                    // Close button — top-right
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: GestureDetector(
+                        onTap: () {
+                          Haptics.selection();
+                          Navigator.of(context).pop();
+                        },
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceElevated,
+                            shape: BoxShape.circle,
+                            border:
+                                Border.all(color: AppColors.border, width: 0.5),
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: AppColors.textSecondary,
+                            size: 16,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 12),

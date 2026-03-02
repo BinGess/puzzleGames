@@ -374,24 +374,29 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
       return;
     }
     final avgMs = _roundMs.reduce((a, b) => a + b) / _roundMs.length;
+    final selectedDifficulty = _difficultyValue(_difficulty);
 
     final record = ScoreRecord(
       gameId: GameType.reactionTime.id,
       score: avgMs,
       timestamp: DateTime.now(),
-      difficulty: _difficultyValue(_difficulty),
+      difficulty: selectedDifficulty,
       metadata: {
         'rounds': _roundMs.length,
         'times': _roundMs,
         'bestMs': _roundMs.reduce(min),
-        'selectedDifficulty': _difficultyValue(_difficulty),
+        'selectedDifficulty': selectedDifficulty,
       },
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
     await ref.read(abilityProvider.notifier).recompute();
 
-    final best = ref.read(bestScoreProvider(GameType.reactionTime.id));
+    final best = ref.read(scoreRepoProvider).getBestScore(
+          GameType.reactionTime.id,
+          lowerIsBetter: true,
+          difficulty: selectedDifficulty,
+        );
     final isNewRecord = best == null || avgMs <= best.score;
     final targetAvg = _targetAvgMsFor(_difficulty);
     final won = avgMs <= targetAvg;
@@ -407,7 +412,7 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
       ref,
       gameType: GameType.reactionTime,
       won: won,
-      difficulty: _difficultyValue(_difficulty),
+      difficulty: selectedDifficulty,
       isNewRecord: isNewRecord,
       performance: performance.toDouble(),
     );
@@ -419,6 +424,8 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
       'metric': 'ms',
       'lowerIsBetter': true,
       'isNewRecord': isNewRecord,
+      'bestByDifficulty': true,
+      'difficulty': selectedDifficulty,
       'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
       'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
       'economyWon': economy.won,
@@ -755,12 +762,17 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
                   final idx = entry.key;
                   final ms = entry.value;
                   final isLast = idx == _roundMs.length - 1;
+                  final roundNumAr = (idx + 1).toArabicDigits();
+                  final msAr = ms.toInt().toArabicDigits();
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 1),
                     child: Text(
-                      useArabicDigits(context)
-                          ? '${tr(context, 'جولة', 'Round', '第')}${(idx + 1).toArabicDigits()}: ${ms.toInt().toArabicDigits()} ${tr(context, 'مللي ثانية', 'ms', '毫秒')}'
-                          : 'Round ${idx + 1}: ${ms.toInt()} ms',
+                      tr(
+                        context,
+                        'جولة $roundNumAr: $msAr مللي ثانية',
+                        'Round ${idx + 1}: ${ms.toInt()} ms',
+                        '第 ${idx + 1} 轮：${ms.toInt()} 毫秒',
+                      ),
                       style: AppTypography.bodySmall.copyWith(
                         color: isLast
                             ? AppColors.textPrimary

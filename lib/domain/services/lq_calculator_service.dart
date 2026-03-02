@@ -30,7 +30,22 @@ class LqCalculatorService {
         focus * 0.15 +
         perception * 0.05;
 
-    final lq = (rawLq + stabilityBonus).clamp(0.0, 100.0);
+    var lq = (rawLq + stabilityBonus).clamp(0.0, 100.0).toDouble();
+
+    final latest = recentAllGames.isNotEmpty ? recentAllGames.first : null;
+    if (latest != null) {
+      final latestNorm = _normalizeByGame(latest);
+      if (_isCatastrophicRun(latest) || _isFirstStepFailure(latest)) {
+        // Hard rule: first-step / catastrophic failures should never show high LQ.
+        lq = math.min(lq, 10.0);
+      } else if (latestNorm <= 5.0) {
+        lq = math.min(lq, 12.0);
+      } else if (latestNorm <= 10.0) {
+        lq = math.min(lq, 18.0);
+      } else if (latestNorm <= 16.0) {
+        lq = math.min(lq, 25.0);
+      }
+    }
 
     return AbilitySnapshot(
       lqScore: _round1(lq),
@@ -154,58 +169,335 @@ class LqCalculatorService {
 
   // ─── Normalizer Functions (raw score → 0-100) ─────────────────────
 
-  /// Reaction Time: raw is average ms. Reference: 200ms=100, 600ms=0
-  double _normalizeReactionTime(double ms) {
-    // Sigmoid around reference: world-class ~150ms, average ~300ms, slow ~600ms
-    return _sigmoid(ms, ref: 300, scale: 100).clamp(0, 100);
+  double _metaNum(Map<String, dynamic> metadata, String key, double fallback) {
+    final v = metadata[key];
+    return v is num ? v.toDouble() : fallback;
   }
 
-  /// Schulte Grid: raw is ms to complete 3x3. Reference: 10s=100, 60s=0
-  double _normalizeSchulte(double ms) {
-    // Time in ms → score (lower is better)
-    return _sigmoid(ms / 1000.0, ref: 25, scale: 10, invert: true).clamp(0, 100);
+  bool _metaBool(Map<String, dynamic> metadata, String key) {
+    final v = metadata[key];
+    return v is bool ? v : false;
   }
 
-  /// Number Memory: raw is max digit length. Reference: 7±2 digits
-  double _normalizeMemoryLength(double length) {
-    // 3=10, 7=60, 10=100
-    return _linearMap(length, minIn: 3, maxIn: 10, minOut: 10, maxOut: 100);
+  double _clamp01(double v) => v.clamp(0.0, 1.0).toDouble();
+
+  int _intMeta(Map<String, dynamic> metadata, String key, int fallback) {
+    final v = metadata[key];
+    return v is num ? v.toInt() : fallback;
   }
 
-  /// Visual Memory: raw is max correct cells. Reference: 3=20, 10=100
-  double _normalizeVisualMemory(double cells) {
-    return _linearMap(cells, minIn: 1, maxIn: 12, minOut: 5, maxOut: 100);
+  double _normalizeFromStart({
+    required double score,
+    required double start,
+    required double goal,
+  }) {
+    final baseline = start - 1;
+    return _clamp01((score - baseline) / (goal - baseline).clamp(1, 99)) * 100;
   }
 
-  /// Sequence Memory: raw is max sequence length
-  double _normalizeSequenceLength(double length) {
-    return _linearMap(length, minIn: 2, maxIn: 15, minOut: 5, maxOut: 100);
+  bool _isFirstStepFailure(ScoreRecord record) {
+    final type = GameTypeId.fromId(record.gameId);
+    if (type == null || type.lowerIsBetter) return false;
+    final metadata = record.metadata;
+    final difficulty = record.difficulty.clamp(1, 4);
+    return switch (type) {
+      GameType.numberMemory => record.score <=
+          (_metaNum(
+                metadata,
+                'startLength',
+                switch (difficulty) {
+                  1 => 3.0,
+                  2 => 5.0,
+                  _ => 7.0,
+                },
+              ) -
+              1),
+      GameType.sequenceMemory => record.score <=
+          (_metaNum(
+                metadata,
+                'startLength',
+                switch (difficulty) {
+                  1 => 2.0,
+                  2 => 3.0,
+                  _ => 4.0,
+                },
+              ) -
+              1),
+      GameType.numberMatrix => record.score <=
+          (_metaNum(
+                metadata,
+                'startLevel',
+                switch (difficulty) {
+                  1 => 3.0,
+                  2 => 4.0,
+                  _ => 5.0,
+                },
+              ) -
+              1),
+      GameType.reverseMemory => record.score <=
+          (_metaNum(
+                metadata,
+                'startLength',
+                switch (difficulty) {
+                  1 => 3.0,
+                  2 => 4.0,
+                  _ => 5.0,
+                },
+              ) -
+              1),
+      GameType.visualMemory => record.score <=
+          (_metaNum(
+                metadata,
+                'startLit',
+                switch (difficulty) {
+                  1 => 3.0,
+                  2 => 5.0,
+                  _ => 6.0,
+                },
+              ) -
+              1),
+      GameType.stroopTest => record.score <= 0,
+      _ => false,
+    };
   }
 
-  /// Number Matrix: raw is completion time in ms. Reference: 30s=100, 120s=0
-  double _normalizeNumberMatrix(double ms) {
-    return _sigmoid(ms / 1000.0, ref: 60, scale: 20, invert: true).clamp(0, 100);
+  bool _isCatastrophicRun(ScoreRecord record) {
+    final metadata = record.metadata;
+    if (_metaBool(metadata, 'antiCheatFailed')) return true;
+    final type = GameTypeId.fromId(record.gameId);
+    if (type == null) return false;
+
+    if (!type.lowerIsBetter && record.score <= 1e-6) return true;
+    if (_isFirstStepFailure(record)) return true;
+    if (type == GameType.stroopTest) {
+      final total = _metaNum(metadata, 'total', 0);
+      final correct = _metaNum(metadata, 'correct', record.score);
+      if (total > 0 && (correct / total) <= 0.05) return true;
+    }
+    return false;
   }
 
-  /// Reverse Memory: raw is max reversed length
-  double _normalizeReverseLength(double length) {
-    return _linearMap(length, minIn: 2, maxIn: 8, minOut: 5, maxOut: 100);
+  double _normalizeByGame(ScoreRecord record) {
+    final type = GameTypeId.fromId(record.gameId);
+    if (type == null) return 0;
+    return switch (type) {
+      GameType.reactionTime => _normalizeReactionTime(record),
+      GameType.schulteGrid => _normalizeSchulte(record),
+      GameType.numberMemory => _normalizeMemoryLength(record),
+      GameType.visualMemory => _normalizeVisualMemory(record),
+      GameType.sequenceMemory => _normalizeSequenceLength(record),
+      GameType.numberMatrix => _normalizeNumberMatrix(record),
+      GameType.reverseMemory => _normalizeReverseLength(record),
+      GameType.stroopTest => _normalizeStroop(record),
+      GameType.slidingPuzzle => _normalizeSlidingPuzzle(record),
+      GameType.towerOfHanoi => _normalizeHanoi(record),
+    };
   }
 
-  /// Stroop Test: raw is correct count (out of 30). Reference: 20=60, 30=100
-  double _normalizeStroop(double correct) {
-    return _linearMap(correct, minIn: 0, maxIn: 30, minOut: 0, maxOut: 100);
+  /// Reaction Time: average ms, lower is better.
+  double _normalizeReactionTime(ScoreRecord record) {
+    final ms = record.score;
+    final difficulty = record.difficulty.clamp(1, 4);
+    final targetMs = switch (difficulty) {
+      1 => 320.0,
+      2 => 280.0,
+      _ => math.max(170.0, 240.0 - (difficulty - 3) * 20.0),
+    };
+    final spanMs = switch (difficulty) {
+      1 => 220.0,
+      2 => 180.0,
+      _ => math.max(110.0, 150.0 - (difficulty - 3) * 10.0),
+    };
+    return (_clamp01(1 - ((ms - targetMs) / spanMs)) * 100).clamp(0, 100);
   }
 
-  /// Sliding Puzzle: raw is move count for 3x3. Reference: 20 moves=100, 100=0
-  double _normalizeSlidingPuzzle(double moves) {
-    return _sigmoid(moves, ref: 40, scale: 20, invert: true).clamp(0, 100);
+  /// Schulte Grid: completion time ms, lower is better. Uses grid size.
+  double _normalizeSchulte(ScoreRecord record) {
+    final ms = record.score;
+    final grid = _intMeta(record.metadata, 'gridSize', record.difficulty + 2);
+    final targetMs = switch (grid) {
+      3 => 14000.0,
+      4 => 30000.0,
+      _ => 55000.0 + (grid - 5) * 18000.0,
+    };
+    final spanMs = switch (grid) {
+      3 => 26000.0,
+      4 => 42000.0,
+      _ => 70000.0 + (grid - 5) * 22000.0,
+    };
+    return (_clamp01(1 - ((ms - targetMs) / spanMs)) * 100).clamp(0, 100);
   }
 
-  /// Tower of Hanoi: raw is moves taken for 3 discs. Optimal = 7.
-  double _normalizeHanoi(double moves) {
-    // metadata stores disc count; approximate optimal = 2^n - 1
-    return _sigmoid(moves, ref: 15, scale: 8, invert: true).clamp(0, 100);
+  /// Number Memory: max recalled length, higher is better.
+  double _normalizeMemoryLength(ScoreRecord record) {
+    final length = record.score;
+    final difficulty = record.difficulty.clamp(1, 4);
+    final start = _metaNum(
+      record.metadata,
+      'startLength',
+      switch (difficulty) {
+        1 => 3.0,
+        2 => 5.0,
+        _ => 7.0,
+      },
+    );
+    final goal = _metaNum(
+      record.metadata,
+      'goalLength',
+      switch (difficulty) {
+        1 => 8.0,
+        2 => 12.0,
+        _ => 16.0 + (difficulty - 3) * 2.0,
+      },
+    );
+    return _normalizeFromStart(score: length, start: start, goal: goal)
+        .clamp(0, 100);
+  }
+
+  /// Visual Memory: max cells remembered over grid capacity.
+  double _normalizeVisualMemory(ScoreRecord record) {
+    final cells = _metaNum(record.metadata, 'maxCells', record.score);
+    final gridSize =
+        _intMeta(record.metadata, 'gridSize', record.difficulty == 1 ? 4 : 5);
+    final startLit = _metaNum(
+      record.metadata,
+      'startLit',
+      switch (record.difficulty.clamp(1, 4)) {
+        1 => 3.0,
+        2 => 5.0,
+        _ => 6.0,
+      },
+    );
+    final maxPossible = (gridSize * gridSize - 1).clamp(1, 99).toDouble();
+    return _normalizeFromStart(score: cells, start: startLit, goal: maxPossible)
+        .clamp(0, 100);
+  }
+
+  /// Sequence Memory: max sequence length vs difficulty goal.
+  double _normalizeSequenceLength(ScoreRecord record) {
+    final length = record.score;
+    final difficulty = record.difficulty.clamp(1, 4);
+    final start = _metaNum(
+      record.metadata,
+      'startLength',
+      switch (difficulty) {
+        1 => 2.0,
+        2 => 3.0,
+        _ => 4.0,
+      },
+    );
+    final goal = _metaNum(
+      record.metadata,
+      'goalLength',
+      switch (difficulty) {
+        1 => 7.0,
+        2 => 9.0,
+        _ => 11.0 + (difficulty - 3) * 2.0,
+      },
+    );
+    return _normalizeFromStart(score: length, start: start, goal: goal)
+        .clamp(0, 100);
+  }
+
+  /// Number Matrix (Chimp): score is completed level count, higher is better.
+  double _normalizeNumberMatrix(ScoreRecord record) {
+    final level = _metaNum(record.metadata, 'maxCompleted', record.score);
+    final difficulty = record.difficulty.clamp(1, 4);
+    final start = _metaNum(
+      record.metadata,
+      'startLevel',
+      switch (difficulty) {
+        1 => 3.0,
+        2 => 4.0,
+        _ => 5.0,
+      },
+    );
+    final goal = _metaNum(
+      record.metadata,
+      'goalLevel',
+      switch (difficulty) {
+        1 => 7.0,
+        2 => 9.0,
+        _ => 11.0 + (difficulty - 3) * 2.0,
+      },
+    );
+    return _normalizeFromStart(score: level, start: start, goal: goal)
+        .clamp(0, 100);
+  }
+
+  /// Reverse Memory: max reversed length vs target.
+  double _normalizeReverseLength(ScoreRecord record) {
+    final length = record.score;
+    final difficulty = record.difficulty.clamp(1, 4);
+    final start = switch (difficulty) {
+      1 => 3.0,
+      2 => 4.0,
+      _ => 5.0,
+    };
+    final goal = _metaNum(
+      record.metadata,
+      'targetLength',
+      _metaNum(
+        record.metadata,
+        'goalLength',
+        switch (difficulty) {
+          1 => 9.0,
+          2 => 12.0,
+          _ => 14.0 + (difficulty - 3) * 2.0,
+        },
+      ),
+    );
+    return _normalizeFromStart(score: length, start: start, goal: goal)
+        .clamp(0, 100);
+  }
+
+  /// Stroop: blend of accuracy and response speed.
+  double _normalizeStroop(ScoreRecord record) {
+    if (_metaBool(record.metadata, 'antiCheatFailed')) return 0;
+    final difficulty = record.difficulty.clamp(1, 4);
+    final total = _metaNum(
+      record.metadata,
+      'total',
+      switch (difficulty) {
+        1 => 20.0,
+        2 => 28.0,
+        _ => 36.0 + (difficulty - 3) * 8.0,
+      },
+    );
+    final correct = _metaNum(record.metadata, 'correct', record.score);
+    final acc =
+        total > 0 ? _clamp01(correct / total) : _clamp01(record.accuracy ?? 0);
+    final avgMsRaw = _metaNum(record.metadata, 'avgMs', 1100.0);
+    final avgMs = avgMsRaw <= 0 ? 1800.0 : avgMsRaw;
+    final speed = _clamp01(1 - ((avgMs - 700.0) / 1400.0));
+    final timeouts = _metaNum(record.metadata, 'timeouts', 0);
+    final timeoutPenalty =
+        ((timeouts / math.max(1.0, total * 0.25)) * 0.12).clamp(0.0, 0.12);
+    return (_clamp01(acc * 0.85 + speed * 0.15 - timeoutPenalty) * 100)
+        .clamp(0, 100);
+  }
+
+  /// Sliding Puzzle: fewer moves is better.
+  double _normalizeSlidingPuzzle(ScoreRecord record) {
+    final moves = record.score;
+    final gridSize =
+        _intMeta(record.metadata, 'gridSize', record.difficulty + 2);
+    final moveTarget = switch (gridSize) {
+      3 => 45.0,
+      4 => 140.0,
+      _ => 260.0 + (gridSize - 5) * 120.0,
+    };
+    return (_clamp01(1 - ((moves - moveTarget) / (moveTarget * 1.2))) * 100)
+        .clamp(0, 100);
+  }
+
+  /// Tower of Hanoi: closer to optimal move count is better.
+  double _normalizeHanoi(ScoreRecord record) {
+    final moves = record.score.clamp(1, 99999).toDouble();
+    final diskCount =
+        _intMeta(record.metadata, 'diskCount', record.difficulty + 2);
+    final optimal = ((1 << diskCount) - 1).toDouble();
+    return (_clamp01(optimal / moves) * 100).clamp(0, 100);
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────
@@ -216,18 +508,18 @@ class LqCalculatorService {
   /// - confidence scaling for low sample counts
   double _gameScoreNormalized(
     List<ScoreRecord>? records,
-    double Function(double) normalize,
+    double Function(ScoreRecord) normalize,
   ) {
     if (records == null || records.isEmpty) return 0;
     final normalizedRecent = records
         .take(5)
-        .map((r) => normalize(r.score).clamp(0, 100).toDouble())
+        .map((r) => normalize(r).clamp(0, 100).toDouble())
         .toList();
     final recentAvg =
         normalizedRecent.reduce((a, b) => a + b) / normalizedRecent.length;
 
     final normalizedAll = records
-        .map((r) => normalize(r.score).clamp(0, 100).toDouble())
+        .map((r) => normalize(r).clamp(0, 100).toDouble())
         .toList()
       ..sort((a, b) => b.compareTo(a));
     final topK = normalizedAll.take(math.min(3, normalizedAll.length)).toList();
@@ -251,31 +543,6 @@ class LqCalculatorService {
     }
     if (totalWeight == 0) return 0;
     return (sum / totalWeight).clamp(0, 100);
-  }
-
-  /// Linear mapping with clamping
-  double _linearMap(
-    double value, {
-    required double minIn,
-    required double maxIn,
-    required double minOut,
-    required double maxOut,
-  }) {
-    if (maxIn == minIn) return minOut;
-    final t = ((value - minIn) / (maxIn - minIn)).clamp(0.0, 1.0);
-    return minOut + t * (maxOut - minOut);
-  }
-
-  /// Sigmoid-based mapping: invert=true means lower input = higher score
-  double _sigmoid(
-    double value, {
-    required double ref, // midpoint (maps to ~50)
-    required double scale, // steepness
-    bool invert = false,
-  }) {
-    final x = invert ? (ref - value) : (value - ref);
-    final s = 1.0 / (1.0 + math.exp(-x / scale));
-    return (s * 100).clamp(0, 100);
   }
 
   double _round1(double v) => (v * 10).round() / 10;

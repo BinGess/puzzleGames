@@ -20,7 +20,8 @@ abstract final class AppColors {
   static const Color textPrimary = Color(0xFFF5F5F5);
   static const Color textSecondary = Color(0xFF9E9E9E);
   static const Color textDisabled = Color(0xFF5A5A6A);
-  static const Color textOnGold = Color(0xFF0A0A12); // Dark text on gold buttons
+  static const Color textOnGold =
+      Color(0xFF0A0A12); // Dark text on gold buttons
 
   // ─── Status ──────────────────────────────────────────────────────
   static const Color success = Color(0xFF34C759);
@@ -84,4 +85,8 @@ abstract final class AppColors {
   static const Color colorBlue = Color(0xFF007AFF);
   static const Color colorGreen = Color(0xFF34C759);
   static const Color colorYellow = Color(0xFFFFCC00);
+  static const Color colorOrange = Color(0xFFFF9500);
+  static const Color colorPurple = Color(0xFFAF52DE);
+  static const Color colorCyan = Color(0xFF00B8D9);
+  static const Color colorPink = Color(0xFFE91E63);
 }

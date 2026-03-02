@@ -69,13 +69,29 @@ class GameEconomyHelper {
   }
 
   static String? buildRewardLabel(BuildContext context, EconomySettlement s) {
-    if (!s.won || s.coinsGained <= 0) return null;
+    if (s.coinsGained <= 0 && s.xpGained <= 0) return null;
     final coinsText = useArabicDigits(context)
         ? s.coinsGained.toArabicDigits()
         : s.coinsGained.toString();
     final xpText = useArabicDigits(context)
         ? s.xpGained.toArabicDigits()
         : '${s.xpGained}';
+    if (s.consolation) {
+      return tr(
+        context,
+        'تعويض: +$coinsText عملة · +$xpText XP',
+        'Consolation: +$coinsText coins · +$xpText XP',
+        '保底返还：+$coinsText 金币 · +$xpText 经验',
+      );
+    }
+    if (s.rewardTier == 'clear_excellent') {
+      return tr(
+        context,
+        'مكافأة مميزة: +$coinsText عملة · +$xpText XP',
+        'Excellent reward: +$coinsText coins · +$xpText XP',
+        '卓越奖励：+$coinsText 金币 · +$xpText 经验',
+      );
+    }
     return tr(
       context,
       'مكافأة: +$coinsText عملة · +$xpText XP',
@@ -85,23 +101,81 @@ class GameEconomyHelper {
   }
 
   static String? buildRewardTip(BuildContext context, EconomySettlement s) {
-    if (s.won) {
-      if (!s.leveledUp) return null;
-      final levelText = useArabicDigits(context)
-          ? s.newLevel.toArabicDigits()
-          : '${s.newLevel}';
-      return tr(
-        context,
-        'ترقية! وصلت إلى المستوى $levelText.',
-        'Level up! You reached level $levelText.',
-        '升级了！你已达到 Lv.$levelText。',
+    final tipParts = <String>[];
+
+    final levelText = useArabicDigits(context)
+        ? s.newLevel.toArabicDigits()
+        : '${s.newLevel}';
+    if (s.leveledUp) {
+      tipParts.add(
+        tr(
+          context,
+          'ترقية! وصلت إلى المستوى $levelText.',
+          'Level up! You reached level $levelText.',
+          '升级了！你已达到 Lv.$levelText。',
+        ),
       );
     }
-    return tr(
-      context,
-      'هذه الجولة ليست فوزًا: لا مكافأة عملات.',
-      'No win this run: no coin reward.',
-      '本局未获胜：不发放金币奖励。',
-    );
+
+    switch (s.rewardTier) {
+      case 'clear_excellent':
+        tipParts.add(
+          tr(
+            context,
+            'أداء ممتاز: تم تطبيق مكافأة إضافية.',
+            'Excellent clear: bonus multiplier applied.',
+            '表现优秀：已触发额外奖励加成。',
+          ),
+        );
+        break;
+      case 'clear_reduced':
+      case 'clear_low':
+        tipParts.add(
+          tr(
+            context,
+            'تم اجتياز الجولة، لكن المكافأة خُفِّضت حسب الأداء.',
+            'Cleared, but rewards were reduced due to performance.',
+            '已通关，但奖励会按表现下调。',
+          ),
+        );
+        break;
+      case 'near_win':
+        tipParts.add(
+          tr(
+            context,
+            'كنت قريبًا من الفوز: تم منح تعويض بسيط.',
+            'Near win: small consolation granted.',
+            '接近通关：已发放少量保底返还。',
+          ),
+        );
+        break;
+      case 'good_try':
+        tipParts.add(
+          tr(
+            context,
+            'محاولة جيدة: تم منح تعويض تدريبي بسيط.',
+            'Good try: small training consolation granted.',
+            '本局表现尚可：发放基础训练返还。',
+          ),
+        );
+        break;
+      case 'none':
+        if (!s.won && !s.rewarded) {
+          tipParts.add(
+            tr(
+              context,
+              'هذه الجولة لم تحقق شرط المكافأة.',
+              'No reward for this run.',
+              '本局未达到奖励条件。',
+            ),
+          );
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (tipParts.isEmpty) return null;
+    return tipParts.join('  ');
   }
 }

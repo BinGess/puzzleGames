@@ -31,6 +31,10 @@ const _stroopColors = [
   _StroopColor('أزرق', 'Blue', '蓝', AppColors.colorBlue),
   _StroopColor('أخضر', 'Green', '绿', AppColors.colorGreen),
   _StroopColor('أصفر', 'Yellow', '黄', AppColors.colorYellow),
+  _StroopColor('برتقالي', 'Orange', '橙', AppColors.colorOrange),
+  _StroopColor('بنفسجي', 'Purple', '紫', AppColors.colorPurple),
+  _StroopColor('سماوي', 'Cyan', '青', AppColors.colorCyan),
+  _StroopColor('وردي', 'Pink', '粉', AppColors.colorPink),
 ];
 
 enum _StroopPhase { config, playing, done }
@@ -130,6 +134,15 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
         _ => 18,
       };
 
+  int _colorCountFor(int difficulty) => switch (difficulty) {
+        1 => 4,
+        2 => 6,
+        _ => 8,
+      };
+
+  List<_StroopColor> _colorsForDifficulty(int difficulty) =>
+      _stroopColors.take(_colorCountFor(difficulty)).toList(growable: false);
+
   String _difficultyLabel(BuildContext context, int difficulty) =>
       switch (difficulty) {
         1 => tr(context, 'عادي', 'Normal', '普通'),
@@ -139,11 +152,12 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
 
   String _difficultyHint(BuildContext context, int difficulty) =>
       switch (difficulty) {
-        1 => tr(context, 'إيقاع مريح', 'Warm-up pace', '热身节奏'),
-        2 => tr(context, 'أسئلة أكثر + وقت محدود', 'More rounds + time limit',
-            '更多题目 + 限时'),
-        _ => tr(context, 'سرعة عالية وعقوبة أخطاء', 'Fast pace with penalties',
-            '高节奏并带惩罚'),
+        1 => tr(context, '4 ألوان · إيقاع مريح', '4 colors · warm-up pace',
+            '4 色 · 热身节奏'),
+        2 => tr(context, '6 ألوان + وقت محدود', '6 colors + time limit',
+            '6 色 + 限时'),
+        _ => tr(context, '8 ألوان + عقوبة أخطاء', '8 colors + penalties',
+            '8 色 + 惩罚'),
       };
 
   int _speedBonus(double elapsedMs) {
@@ -186,8 +200,9 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
   }
 
   void _nextStimulus() {
+    final activeColors = _colorsForDifficulty(_difficulty);
     // Generate a mismatched pair
-    final shuffled = List.of(_stroopColors)..shuffle(_rng);
+    final shuffled = List.of(activeColors)..shuffle(_rng);
     _word = shuffled[0];
     _ink = shuffled.firstWhere((c) => c != _word);
 
@@ -285,7 +300,11 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
     await ref.read(scoreRepoProvider).saveScore(record);
     await ref.read(abilityProvider.notifier).recompute();
 
-    final best = ref.read(bestScoreProvider(GameType.stroopTest.id));
+    final best = ref.read(scoreRepoProvider).getBestScore(
+          GameType.stroopTest.id,
+          lowerIsBetter: false,
+          difficulty: _difficulty,
+        );
     final isNewRecord = best == null || _correct >= best.score;
     final won = accuracy >= 0.68;
     final economy = await GameEconomyHelper.settleGame(
@@ -331,6 +350,8 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
       'metric': 'correct',
       'lowerIsBetter': false,
       'isNewRecord': isNewRecord,
+      'bestByDifficulty': true,
+      'difficulty': _difficulty,
       'bonusLabel': bonusLabel,
       'challengeTip': challengeTip,
       'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
@@ -511,70 +532,74 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
 
   String _difficultyMeta(BuildContext context, int difficulty) {
     final rounds = _totalStimuliFor(difficulty);
+    final colorCount = _colorCountFor(difficulty);
     final timeLimitMs = _timeLimitMsFor(difficulty);
     if (timeLimitMs <= 0) {
       return tr(
         context,
-        '$rounds جولة بدون مؤقت',
-        '$rounds rounds with no timer',
-        '$rounds 题，无单题倒计时',
+        '$rounds جولة · $colorCount ألوان · بدون مؤقت',
+        '$rounds rounds · $colorCount colors · no timer',
+        '$rounds 题 · $colorCount 色 · 无单题计时',
       );
     }
     final seconds = (timeLimitMs / 1000).toStringAsFixed(1);
     return tr(
       context,
-      '$rounds جولة · ${seconds}ث لكل سؤال',
-      '$rounds rounds · $seconds s per question',
-      '$rounds 题 · 每题 $seconds 秒',
+      '$rounds جولة · $colorCount ألوان · ${seconds}ث لكل سؤال',
+      '$rounds rounds · $colorCount colors · $seconds s per question',
+      '$rounds 题 · $colorCount 色 · 每题 $seconds 秒',
     );
   }
 
   Widget _buildColorButtons(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            _colorBtn(context, AppColors.colorRed, 'أحمر', 'Red', '红'),
-            const SizedBox(width: 8),
-            _colorBtn(context, AppColors.colorBlue, 'أزرق', 'Blue', '蓝'),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            _colorBtn(context, AppColors.colorGreen, 'أخضر', 'Green', '绿'),
-            const SizedBox(width: 8),
-            _colorBtn(context, AppColors.colorYellow, 'أصفر', 'Yellow', '黄'),
-          ],
-        ),
-      ],
+    final activeColors = _colorsForDifficulty(_difficulty);
+    final columns = switch (activeColors.length) {
+      <= 4 => 2,
+      <= 6 => 3,
+      _ => 4,
+    };
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final buttonWidth =
+            (constraints.maxWidth - ((columns - 1) * 8)) / columns;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: activeColors
+              .map(
+                (entry) => SizedBox(
+                  width: buttonWidth,
+                  child: _colorBtn(context, entry),
+                ),
+              )
+              .toList(),
+        );
+      },
     );
   }
 
-  Widget _colorBtn(
-      BuildContext context, Color color, String ar, String en, String zh) {
-    final label = tr(context, ar, en, zh);
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => _onColorTap(color),
-        child: Container(
-          height: 60,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: AppTypography.labelLarge.copyWith(
-                color: Colors.white,
-                shadows: [
-                  Shadow(
-                    color: Colors.black.withValues(alpha: 0.4),
-                    blurRadius: 4,
-                  )
-                ],
-              ),
+  Widget _colorBtn(BuildContext context, _StroopColor entry) {
+    final label = tr(context, entry.nameAr, entry.nameEn, entry.nameZh);
+    return GestureDetector(
+      onTap: () => _onColorTap(entry.value),
+      child: Container(
+        height: 60,
+        decoration: BoxDecoration(
+          color: entry.value.withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: AppTypography.labelLarge.copyWith(
+              color: Colors.white,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  blurRadius: 4,
+                )
+              ],
             ),
           ),
         ),

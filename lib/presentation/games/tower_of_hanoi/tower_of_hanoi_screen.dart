@@ -218,14 +218,11 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
     await ref.read(scoreRepoProvider).saveScore(record);
     await ref.read(abilityProvider.notifier).recompute();
 
-    final sameDifficulty = ref
-        .read(scoreRepoProvider)
-        .getScoresForGame(GameType.towerOfHanoi.id)
-        .where((s) => s.difficulty == difficultyTier)
-        .toList(growable: false);
-    final best = sameDifficulty.isEmpty
-        ? null
-        : sameDifficulty.reduce((a, b) => a.score < b.score ? a : b);
+    final best = ref.read(scoreRepoProvider).getBestScore(
+          GameType.towerOfHanoi.id,
+          lowerIsBetter: true,
+          difficulty: difficultyTier,
+        );
     final isNewRecord = best == null || _moves <= best.score;
     final optimalMoves = ((1 << _diskCount) - 1).toDouble();
     final performance = (optimalMoves / _moves.clamp(1, 9999)).clamp(0.0, 1.0);
@@ -305,12 +302,17 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
                 ),
               ),
             ),
-          IconButton(
-            icon:
-                const Icon(Icons.help_outline, color: AppColors.textSecondary),
-            onPressed: () =>
-                GameRulesHelper.showRulesDialog(context, GameType.towerOfHanoi),
-          ),
+          if (!_showingConfig)
+            IconButton(
+              icon: const Icon(
+                Icons.help_outline,
+                color: AppColors.textSecondary,
+              ),
+              onPressed: () => GameRulesHelper.showRulesDialog(
+                context,
+                GameType.towerOfHanoi,
+              ),
+            ),
         ],
       ),
       body: _showingConfig ? _buildConfig(context) : _buildGame(context),
@@ -326,17 +328,6 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Animated mini preview
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (child, anim) =>
-                  ScaleTransition(scale: anim, child: child),
-              child: _MiniTowerPreview(
-                key: ValueKey(_diskCount),
-                diskCount: _diskCount,
-              ),
-            ),
-            const SizedBox(height: 20),
             Text(
               tr(
                 context,
@@ -836,137 +827,6 @@ class _TextChip extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
-      ),
-    );
-  }
-}
-
-// ─── Mini Tower Preview (config screen) ──────────────────────────────────────
-
-class _MiniTowerPreview extends StatelessWidget {
-  final int diskCount;
-
-  const _MiniTowerPreview({super.key, required this.diskCount});
-
-  @override
-  Widget build(BuildContext context) {
-    const previewW = 130.0;
-    const discH = 18.0;
-    const discGap = 3.0;
-    const minW = 24.0;
-    const maxW = previewW - 12.0;
-    const poleW = 7.0;
-    const baseH = 12.0;
-
-    final poleHeight = diskCount * (discH + discGap) + 16.0;
-    final totalH = poleHeight + baseH + 8.0;
-
-    return Container(
-      width: previewW,
-      height: totalH,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0E0E1C),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.towerOfHanoi.withValues(alpha: 0.25),
-          width: 0.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.towerOfHanoi.withValues(alpha: 0.15),
-            blurRadius: 20,
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // Base
-          Positioned(
-            bottom: 8,
-            left: 8,
-            right: 8,
-            child: Container(
-              height: baseH,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.towerOfHanoi.withValues(alpha: 0.22),
-                    AppColors.towerOfHanoi.withValues(alpha: 0.10),
-                    AppColors.towerOfHanoi.withValues(alpha: 0.22),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: AppColors.towerOfHanoi.withValues(alpha: 0.30),
-                  width: 0.5,
-                ),
-              ),
-            ),
-          ),
-          // Pole
-          Positioned(
-            bottom: 8 + baseH,
-            left: previewW / 2 - poleW / 2,
-            width: poleW,
-            height: poleHeight,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppColors.towerOfHanoi.withValues(alpha: 0.80),
-                    AppColors.towerOfHanoi.withValues(alpha: 0.35),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(4),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.towerOfHanoi.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Discs
-          ...List.generate(diskCount, (i) {
-            // i=0 → bottom/largest, i=diskCount-1 → top/smallest
-            final size = diskCount - i; // size: N down to 1
-            final t =
-                diskCount <= 1 ? 1.0 : (size - 1) / (diskCount - 1).toDouble();
-            final dw = minW + t * (maxW - minW);
-            final color = _diskColor(size);
-            final bottom = 8.0 + baseH + i * (discH + discGap);
-
-            return Positioned(
-              bottom: bottom,
-              left: previewW / 2 - dw / 2,
-              width: dw,
-              height: discH,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      color.withValues(alpha: 0.92),
-                      color.withValues(alpha: 0.65),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(7),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.35),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
       ),
     );
   }

@@ -36,6 +36,8 @@ class EconomySettlement {
   final int oldLevel;
   final int newLevel;
   final int balanceAfter;
+  final String rewardTier;
+  final bool consolation;
 
   const EconomySettlement({
     required this.won,
@@ -44,9 +46,12 @@ class EconomySettlement {
     required this.oldLevel,
     required this.newLevel,
     required this.balanceAfter,
+    this.rewardTier = 'none',
+    this.consolation = false,
   });
 
   bool get leveledUp => newLevel > oldLevel;
+  bool get rewarded => coinsGained > 0 || xpGained > 0;
 }
 
 class EconomyProgress {
@@ -64,7 +69,7 @@ class EconomyProgress {
 }
 
 class EconomyService {
-  static const int dailySupplyCoins = 30;
+  static const int dailySupplyCoins = 50;
 
   static const Map<GameType, GameEconomyConfig> _config = {
     GameType.schulteGrid: GameEconomyConfig(
@@ -198,17 +203,6 @@ class EconomyService {
     required bool isNewRecord,
     required double performance,
   }) {
-    if (!won) {
-      return EconomySettlement(
-        won: false,
-        coinsGained: 0,
-        xpGained: 0,
-        oldLevel: profile.level,
-        newLevel: profile.level,
-        balanceAfter: profile.coins,
-      );
-    }
-
     final cfg = configFor(gameType);
     final tier = _resolveDifficultyTier(
       difficulty: difficulty,
@@ -216,26 +210,81 @@ class EconomyService {
     );
     final diffCoinBonus = cfg.difficultyCoinBonusByTier[tier - 1];
     final diffXpBonus = cfg.difficultyXpBonusByTier[tier - 1];
-    final perfCoinBonus = (performance.clamp(0, 1) * 4).round();
-    final perfXpBonus = (performance.clamp(0, 1) * 3).round();
-    final recordCoinBonus = isNewRecord ? 2 : 0;
-    final recordXpBonus = isNewRecord ? 1 : 0;
+    final perf = performance.clamp(0.0, 1.0).toDouble();
 
-    final gainedCoins =
-        cfg.baseCoinReward + diffCoinBonus + perfCoinBonus + recordCoinBonus;
-    final gainedXp =
-        cfg.baseXpReward + diffXpBonus + perfXpBonus + recordXpBonus;
+    final perfCoinBonus = (perf * 4).round();
+    final perfXpBonus = (perf * 3).round();
+    final recordCoinBonus = won && isNewRecord ? 2 : 0;
+    final recordXpBonus = won && isNewRecord ? 1 : 0;
+
+    int gainedCoins = 0;
+    int gainedXp = 0;
+    var rewardTier = 'none';
+    var consolation = false;
+
+    if (won) {
+      final baseCoins =
+          cfg.baseCoinReward + diffCoinBonus + perfCoinBonus + recordCoinBonus;
+      final baseXp =
+          cfg.baseXpReward + diffXpBonus + perfXpBonus + recordXpBonus;
+
+      if (perf >= 0.90) {
+        // Excellent clear
+        rewardTier = 'clear_excellent';
+        gainedCoins = (baseCoins * 1.15).round();
+        gainedXp = (baseXp * 1.15).round();
+      } else if (perf >= 0.70) {
+        // Standard clear
+        rewardTier = 'clear_standard';
+        gainedCoins = baseCoins;
+        gainedXp = baseXp;
+      } else if (perf >= 0.50) {
+        // Valid clear but modest performance
+        rewardTier = 'clear_reduced';
+        gainedCoins = (baseCoins * 0.82).round();
+        gainedXp = (baseXp * 0.88).round();
+      } else {
+        // Slow/inefficient clear, still rewarded but reduced
+        rewardTier = 'clear_low';
+        gainedCoins = (baseCoins * 0.68).round();
+        gainedXp = (baseXp * 0.78).round();
+      }
+      gainedCoins = gainedCoins.clamp(1, 9999).toInt();
+      gainedXp = gainedXp.clamp(1, 9999).toInt();
+    } else {
+      // Lost runs: no random payouts. Only near-win gets small refund.
+      if (perf >= 0.75) {
+        rewardTier = 'near_win';
+        consolation = true;
+        gainedCoins = (cfg.entryCost * 0.60).round() + (tier - 1);
+        gainedXp = (cfg.baseXpReward * 0.45).round() + (tier - 1);
+      } else if (perf >= 0.55) {
+        rewardTier = 'good_try';
+        consolation = true;
+        gainedCoins = (cfg.entryCost * 0.30).round();
+        gainedXp = (cfg.baseXpReward * 0.25).round();
+      } else {
+        rewardTier = 'none';
+        consolation = false;
+        gainedCoins = 0;
+        gainedXp = 0;
+      }
+      gainedCoins = gainedCoins.clamp(0, 9999).toInt();
+      gainedXp = gainedXp.clamp(0, 9999).toInt();
+    }
 
     final newTotalXp = profile.xp + gainedXp;
     final newLevel = levelFromTotalXp(newTotalXp);
 
     return EconomySettlement(
-      won: true,
+      won: won,
       coinsGained: gainedCoins,
       xpGained: gainedXp,
       oldLevel: profile.level,
       newLevel: newLevel,
       balanceAfter: profile.coins + gainedCoins,
+      rewardTier: rewardTier,
+      consolation: consolation,
     );
   }
 
@@ -249,7 +298,7 @@ class EconomyService {
 
   UserProfile applySettlement(
       UserProfile profile, EconomySettlement settlement) {
-    if (!settlement.won) return profile;
+    if (!settlement.rewarded && !settlement.leveledUp) return profile;
     return profile.copyWith(
       coins: settlement.balanceAfter,
       xp: profile.xp + settlement.xpGained,

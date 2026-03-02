@@ -176,18 +176,23 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
   Future<void> _finishGame() async {
     _stopwatch.stop();
     _uiTimer?.cancel();
+    final difficultyTier = _gridSize - 2;
     final record = ScoreRecord(
       gameId: GameType.slidingPuzzle.id,
       score: _moves.toDouble(),
       timestamp: DateTime.now(),
-      difficulty: _gridSize - 2,
+      difficulty: difficultyTier,
       metadata: {'gridSize': _gridSize, 'moves': _moves},
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
     await ref.read(abilityProvider.notifier).recompute();
 
-    final best = ref.read(bestScoreProvider(GameType.slidingPuzzle.id));
+    final best = ref.read(scoreRepoProvider).getBestScore(
+          GameType.slidingPuzzle.id,
+          lowerIsBetter: true,
+          difficulty: difficultyTier,
+        );
     final isNewRecord = best == null || _moves <= best.score;
     final moveTarget = switch (_gridSize) {
       3 => 45.0,
@@ -200,7 +205,7 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
       ref,
       gameType: GameType.slidingPuzzle,
       won: true,
-      difficulty: _gridSize - 2,
+      difficulty: difficultyTier,
       isNewRecord: isNewRecord,
       performance: performance.toDouble(),
     );
@@ -217,6 +222,8 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
       'metric': 'moves',
       'lowerIsBetter': true,
       'isNewRecord': isNewRecord,
+      'bestByDifficulty': true,
+      'difficulty': difficultyTier,
       'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
       'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
       'economyWon': economy.won,

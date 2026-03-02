@@ -30,11 +30,10 @@ class AnalyticsScreen extends ConsumerWidget {
     // Pre-compute per-game stats
     final gameStats = GameType.values.map((g) {
       final scores = scoreRepo.getScoresForGame(g.id);
-      final ScoreRecord? best = scores.isEmpty
-          ? null
-          : g.lowerIsBetter
-              ? scores.reduce((a, b) => a.score < b.score ? a : b)
-              : scores.reduce((a, b) => a.score > b.score ? a : b);
+      final ScoreRecord? best = scoreRepo.getBestScoreAtHighestDifficulty(
+        g.id,
+        lowerIsBetter: g.lowerIsBetter,
+      );
       return _GameStat(type: g, best: best, playCount: scores.length);
     }).toList();
 

@@ -181,7 +181,11 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
     await ref.read(scoreRepoProvider).saveScore(record);
     await ref.read(abilityProvider.notifier).recompute();
 
-    final best = ref.read(bestScoreProvider(GameType.visualMemory.id));
+    final best = ref.read(scoreRepoProvider).getBestScore(
+          GameType.visualMemory.id,
+          lowerIsBetter: false,
+          difficulty: _difficultyLevel,
+        );
     final isNewRecord = best == null || _maxCorrect >= best.score;
     final won = _maxCorrect >= 5;
     final maxPossible = (_gridSize * _gridSize - 1).toDouble().clamp(1.0, 99.0);
@@ -202,6 +206,8 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
       'metric': 'correct',
       'lowerIsBetter': false,
       'isNewRecord': isNewRecord,
+      'bestByDifficulty': true,
+      'difficulty': _difficultyLevel,
       'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
       'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
       'economyWon': economy.won,
@@ -312,15 +318,15 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
                     title: tr(context, 'صعب', 'Hard', '困难'),
                     subtitle: tr(
                       context,
-                      'اضغط البنفسجي، والأخضر لون تشويش',
-                      'Tap purple cells; green is decoy',
-                      '点击紫色，绿色为干扰色',
+                      'إيقاع أسرع ومساحة تذكر أقصر',
+                      'Faster pace with a shorter memory window',
+                      '节奏更快，记忆窗口更短',
                     ),
                     details: tr(
                       context,
-                      'يظهر لون أخضر مُشتت بجانب اللون الهدف البنفسجي',
-                      'Adds green decoys against the purple target cells',
-                      '除目标紫色外，会出现绿色干扰块',
+                      'الهدف هو البنفسجي فقط، والأخضر للتشويش',
+                      'Target purple cells only; green is decoy',
+                      '只点紫色目标块，绿色是干扰块',
                     ),
                   ),
                 ],

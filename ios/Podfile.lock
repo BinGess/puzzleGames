@@ -30,11 +30,11 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/share_plus/ios"
 
 SPEC CHECKSUMS:
-  audioplayers_darwin: 835ced6edd4c9fc8ebb0a7cc9e294a91d99917d5
+  audioplayers_darwin: f15e209a3e856d1a7edcf98dc029f484fead2242
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_tts: 35ac3c7d42412733e795ea96ad2d7e05d0a75113
-  image_gallery_saver: 14711d79da40581063e8842a11acf1969d781ed7
-  share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
+  flutter_tts: 91ad1884033cd95ef6e9338754adad54f01f090f
+  image_gallery_saver: cb43cc43141711190510e92c460eb1655cd343cb
+  share_plus: 8b6f8b3447e494cca5317c8c3073de39b3600d1f
 
 PODFILE CHECKSUM: f8c2dcdfb50bb67645580d28a6bf814fca30bdec
 

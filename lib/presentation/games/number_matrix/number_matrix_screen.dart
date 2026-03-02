@@ -271,15 +271,16 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
     _successTimer?.cancel();
     _recallTimer?.cancel();
     final score = _maxCompleted.toDouble();
+    final selectedDifficulty = _difficultyValue(_difficulty);
     final record = ScoreRecord(
       gameId: GameType.numberMatrix.id,
       score: score,
       timestamp: DateTime.now(),
-      difficulty: _difficultyValue(_difficulty),
+      difficulty: selectedDifficulty,
       metadata: {
         'maxCompleted': _maxCompleted,
         'failedAt': _level,
-        'selectedDifficulty': _difficultyValue(_difficulty),
+        'selectedDifficulty': selectedDifficulty,
         'startLevel': _startLevelFor(_difficulty),
         'goalLevel': _goalLevelFor(_difficulty),
       },
@@ -288,7 +289,11 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
     await ref.read(scoreRepoProvider).saveScore(record);
     await ref.read(abilityProvider.notifier).recompute();
 
-    final best = ref.read(bestScoreProvider(GameType.numberMatrix.id));
+    final best = ref.read(scoreRepoProvider).getBestScore(
+          GameType.numberMatrix.id,
+          lowerIsBetter: false,
+          difficulty: selectedDifficulty,
+        );
     final isNewRecord = best == null || score >= best.score;
     final won = _maxCompleted >= _goalLevelFor(_difficulty);
     final performance =
@@ -297,7 +302,7 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
       ref,
       gameType: GameType.numberMatrix,
       won: won,
-      difficulty: _difficultyValue(_difficulty),
+      difficulty: selectedDifficulty,
       isNewRecord: isNewRecord,
       performance: performance.toDouble(),
     );
@@ -309,6 +314,8 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
       'metric': 'length',
       'lowerIsBetter': false,
       'isNewRecord': isNewRecord,
+      'bestByDifficulty': true,
+      'difficulty': selectedDifficulty,
       'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
       'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
       'economyWon': economy.won,
@@ -339,7 +346,8 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
                 child: Text(
                   useArabicDigits(context)
                       ? 'مستوى ${_level.toArabicDigits()}'
-                      : 'Level $_level',
+                      : tr(context, 'مستوى $_level', 'Level $_level',
+                          '第 $_level 关'),
                   style: AppTypography.labelLarge
                       .copyWith(color: AppColors.numberMatrix),
                 ),
@@ -434,7 +442,8 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
           Text(
             useArabicDigits(context)
                 ? 'المستوى ${_level.toArabicDigits()} اكتمل ✓'
-                : 'Level $_level complete ✓',
+                : tr(context, 'المستوى $_level اكتمل ✓',
+                    'Level $_level complete ✓', '第 $_level 关完成 ✓'),
             style: AppTypography.bodyMedium
                 .copyWith(color: AppColors.textSecondary),
           ),

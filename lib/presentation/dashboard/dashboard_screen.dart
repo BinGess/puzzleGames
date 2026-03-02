@@ -302,7 +302,7 @@ class _EconomyOverview extends StatelessWidget {
               const SizedBox(width: 10),
               _StatPill(
                 icon: Icons.workspace_premium_rounded,
-                label: 'Lv',
+                label: tr(context, 'المستوى', 'Level', '等级'),
                 value: levelText,
                 color: AppColors.sequenceMemory,
               ),

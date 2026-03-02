@@ -28,7 +28,7 @@ class NumberMemoryScreen extends ConsumerStatefulWidget {
 }
 
 class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
-  static const _absoluteMaxLength = 14;
+  static const _absoluteMaxLength = 18;
 
   final _rng = Random();
   _MemPhase _phase = _MemPhase.config;
@@ -54,15 +54,15 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
   int _startLengthFor(_NumberMemoryDifficulty difficulty) =>
       switch (difficulty) {
         _NumberMemoryDifficulty.easy => 3,
-        _NumberMemoryDifficulty.medium => 4,
-        _NumberMemoryDifficulty.hard => 5,
+        _NumberMemoryDifficulty.medium => 5,
+        _NumberMemoryDifficulty.hard => 7,
       };
 
   int _goalLengthFor(_NumberMemoryDifficulty difficulty) =>
       switch (difficulty) {
         _NumberMemoryDifficulty.easy => 8,
-        _NumberMemoryDifficulty.medium => 10,
-        _NumberMemoryDifficulty.hard => 12,
+        _NumberMemoryDifficulty.medium => 12,
+        _NumberMemoryDifficulty.hard => 16,
       };
 
   String _difficultyLabel(
@@ -78,11 +78,57 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
       switch (difficulty) {
         _NumberMemoryDifficulty.easy =>
           tr(context, 'إيقاع دخول مريح', 'Gentle onboarding pace', '入门节奏更平稳'),
-        _NumberMemoryDifficulty.medium => tr(context, 'تحدٍ متوازن في الطول',
-            'Balanced length challenge', '长度挑战更均衡'),
-        _NumberMemoryDifficulty.hard => tr(context, 'ضغط أعلى وسلسلة أطول',
-            'Higher pressure, longer chains', '压力更高，序列更长'),
+        _NumberMemoryDifficulty.medium => tr(context, 'سلسلة أطول وعرض أسرع',
+            'Longer chains with faster reveal', '更长序列，显示更快'),
+        _NumberMemoryDifficulty.hard => tr(
+            context,
+            'سلسلة طويلة جدًا ووقت حفظ قصير',
+            'Very long chains with short reveal',
+            '超长序列，记忆时间更短'),
       };
+
+  double _showSecondsFor(_NumberMemoryDifficulty difficulty, int length) {
+    final startLength = _startLengthFor(difficulty);
+    final delta = max(0, length - startLength);
+    return switch (difficulty) {
+      _NumberMemoryDifficulty.easy => (2.8 + delta * 0.55).clamp(2.8, 6.8),
+      _NumberMemoryDifficulty.medium => (2.0 + delta * 0.34).clamp(1.6, 4.2),
+      _NumberMemoryDifficulty.hard => (1.45 + delta * 0.18).clamp(1.2, 2.4),
+    };
+  }
+
+  String _generateSequence(int length, _NumberMemoryDifficulty difficulty) {
+    final buffer = <int>[];
+    for (var i = 0; i < length; i++) {
+      int chosen = _rng.nextInt(10);
+      var attempts = 0;
+      while (attempts < 20) {
+        var accepted = true;
+        if (difficulty != _NumberMemoryDifficulty.easy &&
+            i > 0 &&
+            chosen == buffer[i - 1]) {
+          accepted = false;
+        }
+        if (difficulty == _NumberMemoryDifficulty.hard && i >= 2) {
+          final d1 = buffer[i - 1] - buffer[i - 2];
+          final d2 = chosen - buffer[i - 1];
+          if ((d1 == d2) && d1.abs() <= 1) {
+            accepted = false;
+          }
+        }
+        if (difficulty == _NumberMemoryDifficulty.hard && i >= 3) {
+          if (chosen == buffer[i - 2] && buffer[i - 1] == buffer[i - 3]) {
+            accepted = false;
+          }
+        }
+        if (accepted) break;
+        chosen = _rng.nextInt(10);
+        attempts++;
+      }
+      buffer.add(chosen);
+    }
+    return buffer.join();
+  }
 
   String _difficultyMeta(
       BuildContext context, _NumberMemoryDifficulty difficulty) {
@@ -93,6 +139,18 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
       'بداية $start أرقام · هدف $goal',
       'Start $start digits · Goal $goal',
       '起始 $start 位 · 目标 $goal 位',
+    );
+  }
+
+  TextStyle _digitFlashStyleForLength(int length, {Color? color}) {
+    final safeLength = length.clamp(1, _absoluteMaxLength).toInt();
+    final shrinkSteps = max(0, safeLength - 8);
+    final fontSize = (52 - shrinkSteps * 3.0).clamp(24.0, 52.0);
+    final letterSpacing = (4.0 - max(0, safeLength - 9) * 0.35).clamp(0.5, 4.0);
+    return AppTypography.digitFlash.copyWith(
+      fontSize: fontSize,
+      letterSpacing: letterSpacing,
+      color: color ?? AppTypography.digitFlash.color,
     );
   }
 
@@ -130,20 +188,8 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
   }
 
   void _startRound() {
-    // Generate random digit sequence
-    final digits =
-        List.generate(_currentLength, (_) => _rng.nextInt(10).toString());
-    _currentSequence = digits.join();
-
-    final startLength = _startLengthFor(_difficulty);
-    _roundShowSecs = switch (_difficulty) {
-      _NumberMemoryDifficulty.easy =>
-        (2.8 + max(0, (_currentLength - startLength) * 0.55)).clamp(2.8, 6.8),
-      _NumberMemoryDifficulty.medium =>
-        (2.4 + max(0, (_currentLength - startLength) * 0.45)).clamp(2.2, 5.6),
-      _NumberMemoryDifficulty.hard =>
-        (3.0 - max(0, (_currentLength - startLength) * 0.20)).clamp(2.0, 3.0),
-    };
+    _currentSequence = _generateSequence(_currentLength, _difficulty);
+    _roundShowSecs = _showSecondsFor(_difficulty, _currentLength);
     _countdown = _roundShowSecs.ceil();
 
     setState(() {
@@ -204,14 +250,15 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
 
   Future<void> _finishGame() async {
     _timer?.cancel();
+    final selectedDifficulty = _difficultyValue(_difficulty);
     final record = ScoreRecord(
       gameId: GameType.numberMemory.id,
       score: _maxReached.toDouble(),
       timestamp: DateTime.now(),
-      difficulty: _difficultyValue(_difficulty),
+      difficulty: selectedDifficulty,
       metadata: {
         'maxLength': _maxReached,
-        'selectedDifficulty': _difficultyValue(_difficulty),
+        'selectedDifficulty': selectedDifficulty,
         'startLength': _startLengthFor(_difficulty),
         'goalLength': _goalLengthFor(_difficulty),
       },
@@ -220,7 +267,11 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
     await ref.read(scoreRepoProvider).saveScore(record);
     await ref.read(abilityProvider.notifier).recompute();
 
-    final best = ref.read(bestScoreProvider(GameType.numberMemory.id));
+    final best = ref.read(scoreRepoProvider).getBestScore(
+          GameType.numberMemory.id,
+          lowerIsBetter: false,
+          difficulty: selectedDifficulty,
+        );
     final isNewRecord = best == null || _maxReached >= best.score;
     final won = _maxReached >= _goalLengthFor(_difficulty);
     final performance =
@@ -229,7 +280,7 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
       ref,
       gameType: GameType.numberMemory,
       won: won,
-      difficulty: _difficultyValue(_difficulty),
+      difficulty: selectedDifficulty,
       isNewRecord: isNewRecord,
       performance: performance.toDouble(),
     );
@@ -241,6 +292,8 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
       'metric': 'length',
       'lowerIsBetter': false,
       'isNewRecord': isNewRecord,
+      'bestByDifficulty': true,
+      'difficulty': selectedDifficulty,
       'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
       'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
       'economyWon': economy.won,
@@ -349,33 +402,65 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
     final displaySeq = useArabicDigits(context)
         ? _currentSequence.toArabicNumerals()
         : _currentSequence;
+    final digitStyle = _digitFlashStyleForLength(_currentSequence.length);
 
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            displaySeq,
-            style: AppTypography.digitFlash,
-            textDirection: TextDirection.ltr, // digits always LTR order
-          ),
-          const SizedBox(height: 32),
-          Text(
-            tr(context, 'يختفي خلال $_countdown ث',
-                'Disappears in $_countdown' 's', '$_countdown秒后消失'),
-            style: AppTypography.caption,
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: 200,
-            child: LinearProgressIndicator(
-              value: _countdown / _roundShowSecs.ceil(),
-              backgroundColor: AppColors.border,
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(AppColors.numberMemory),
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final displayWidth =
+              min(560.0, max(220.0, constraints.maxWidth - 32));
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: displayWidth,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    displaySeq,
+                    style: digitStyle,
+                    maxLines: 1,
+                    softWrap: false,
+                    textDirection: TextDirection.ltr, // digits always LTR order
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                tr(context, 'يختفي خلال $_countdown ث',
+                    'Disappears in $_countdown' 's', '$_countdown秒后消失'),
+                style: AppTypography.caption,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: 200,
+                child: LinearProgressIndicator(
+                  value: _countdown / _roundShowSecs.ceil(),
+                  backgroundColor: AppColors.border,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.numberMemory),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildInputDisplay(String text, {required Color color}) {
+    final style = _digitFlashStyleForLength(_currentLength, color: color);
+    return SizedBox(
+      width: min(560.0, MediaQuery.sizeOf(context).width - 64),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          text,
+          style: style,
+          maxLines: 1,
+          softWrap: false,
+          textDirection: TextDirection.ltr,
+        ),
       ),
     );
   }
@@ -383,6 +468,10 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
   Widget _buildInput(BuildContext context) {
     final displayInput =
         useArabicDigits(context) ? _inputValue.toArabicNumerals() : _inputValue;
+    final isEmpty = displayInput.isEmpty;
+    final displayText = isEmpty ? '___' : displayInput;
+    final displayColor =
+        isEmpty ? AppColors.textDisabled : AppColors.numberMemory;
 
     return Column(
       children: [
@@ -405,16 +494,7 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
                           BorderSide(color: AppColors.numberMemory, width: 2),
                     ),
                   ),
-                  child: Text(
-                    displayInput.isEmpty ? '___' : displayInput,
-                    style: AppTypography.digitFlash.copyWith(
-                      color: displayInput.isEmpty
-                          ? AppColors.textDisabled
-                          : AppColors.numberMemory,
-                      letterSpacing: 4,
-                    ),
-                    textDirection: TextDirection.ltr,
-                  ),
+                  child: _buildInputDisplay(displayText, color: displayColor),
                 ),
                 const SizedBox(height: 12),
                 Row(

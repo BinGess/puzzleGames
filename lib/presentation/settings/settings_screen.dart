@@ -9,8 +9,17 @@ import '../../data/repositories/score_repository.dart';
 import '../../data/repositories/analytics_repository.dart';
 import '../providers/app_providers.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  static const String _appVersion = '1.0.0';
+  int _versionTapCount = 0;
+  bool _showEconomyReset = false;
 
   String _t(String ar, String en, String zh, String lang) {
     switch (lang) {
@@ -24,7 +33,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final profile = ref.watch(profileProvider);
     final lang = AppLocaleResolver.resolve(profile.languageCode);
 
@@ -114,15 +123,16 @@ class SettingsScreen extends ConsumerWidget {
                 'Delete all scores and records', '删除所有分数和记录', lang),
             onTap: () => _confirmReset(context, ref, lang),
           ),
-          _actionTile(
-            icon: Icons.workspace_premium_outlined,
-            iconColor: AppColors.gold,
-            title: _t('إعادة تعيين العملات والمستوى', 'Reset Coins & Level',
-                '重置金币与等级', lang),
-            subtitle: _t('إرجاع الاقتصاد لنقطة البداية',
-                'Reset economy progress to defaults', '将经济系统恢复到初始状态', lang),
-            onTap: () => _confirmEconomyReset(context, ref, lang),
-          ),
+          if (_showEconomyReset)
+            _actionTile(
+              icon: Icons.workspace_premium_outlined,
+              iconColor: AppColors.gold,
+              title: _t('إعادة تعيين العملات والمستوى', 'Reset Coins & Level',
+                  '重置金币与等级', lang),
+              subtitle: _t('إرجاع الاقتصاد لنقطة البداية',
+                  'Reset economy progress to defaults', '将经济系统恢复到初始状态', lang),
+              onTap: () => _confirmEconomyReset(context, ref, lang),
+            ),
 
           const Divider(color: AppColors.border, thickness: 0.5, height: 32),
 
@@ -132,7 +142,8 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.info_outline_rounded,
             iconColor: AppColors.textSecondary,
             title: _t('الإصدار', 'Version', '版本', lang),
-            value: '1.0.0',
+            value: _appVersion,
+            onTap: () => _onVersionTap(lang),
           ),
           _infoTile(
             icon: Icons.lock_outline_rounded,
@@ -156,6 +167,27 @@ class SettingsScreen extends ConsumerWidget {
         style: AppTypography.labelMedium.copyWith(
           color: AppColors.textDisabled,
           fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  void _onVersionTap(String lang) {
+    if (_showEconomyReset) return;
+    Haptics.selection();
+    setState(() => _versionTapCount++);
+    if (_versionTapCount < 5) return;
+    setState(() => _showEconomyReset = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          _t(
+            'تم فتح القائمة المخفية',
+            'Hidden menu unlocked',
+            '已解锁隐藏菜单',
+            lang,
+          ),
         ),
       ),
     );
@@ -312,12 +344,14 @@ class SettingsScreen extends ConsumerWidget {
     required Color iconColor,
     required String title,
     required String value,
+    VoidCallback? onTap,
   }) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20),
       leading: _iconBox(icon, iconColor),
       title: Text(title, style: AppTypography.bodyMedium),
       trailing: Text(value, style: AppTypography.labelMedium),
+      onTap: onTap,
     );
   }
 
