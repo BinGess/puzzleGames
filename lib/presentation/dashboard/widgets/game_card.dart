@@ -14,6 +14,7 @@ class GameCardData {
   final String nameZh;
   final IconData icon;
   final Color accentColor;
+  final int entryCost;
   final ScoreRecord? bestScore;
 
   const GameCardData({
@@ -23,6 +24,7 @@ class GameCardData {
     required this.nameZh,
     required this.icon,
     required this.accentColor,
+    required this.entryCost,
     this.bestScore,
   });
 }
@@ -167,6 +169,12 @@ class _InfoSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = Localizations.localeOf(context).languageCode;
+    final costLabel = switch (locale) {
+      'ar' => 'الدخول',
+      'zh' => '入场',
+      _ => 'Entry',
+    };
     return Container(
       color: const Color(0xFF0B0B17),
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
@@ -216,7 +224,56 @@ class _InfoSection extends StatelessWidget {
                       color: data.accentColor,
                     )
                   : _NewBadge(color: data.accentColor),
+              const Spacer(),
+              _EntryCostBadge(
+                color: data.accentColor,
+                label: costLabel,
+                cost: data.entryCost,
+              ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EntryCostBadge extends StatelessWidget {
+  final Color color;
+  final String label;
+  final int cost;
+
+  const _EntryCostBadge({
+    required this.color,
+    required this.label,
+    required this.cost,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.gold.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.34)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.monetization_on_rounded,
+            color: AppColors.gold,
+            size: 10,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            '$label $cost',
+            style: AppTypography.labelMedium.copyWith(
+              color: AppColors.gold,
+              fontWeight: FontWeight.w700,
+              fontSize: 11,
+            ),
           ),
         ],
       ),

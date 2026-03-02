@@ -15,8 +15,10 @@ import '../../presentation/games/tower_of_hanoi/tower_of_hanoi_screen.dart';
 import '../../presentation/result/result_screen.dart';
 import '../../presentation/analytics/analytics_screen.dart';
 import '../../presentation/settings/settings_screen.dart';
+import '../../presentation/splash/splash_screen.dart';
 
 abstract final class AppRoutes {
+  static const splash = '/splash';
   static const dashboard = '/';
   static const analytics = '/analytics';
   static const settings = '/settings';
@@ -35,23 +37,29 @@ abstract final class AppRoutes {
   static const towerOfHanoi = '/game/tower-of-hanoi';
 
   static String gameRoute(GameType type) => switch (type) {
-    GameType.schulteGrid => schulteGrid,
-    GameType.reactionTime => reactionTime,
-    GameType.numberMemory => numberMemory,
-    GameType.stroopTest => stroopTest,
-    GameType.visualMemory => visualMemory,
-    GameType.sequenceMemory => sequenceMemory,
-    GameType.numberMatrix => numberMatrix,
-    GameType.reverseMemory => reverseMemory,
-    GameType.slidingPuzzle => slidingPuzzle,
-    GameType.towerOfHanoi => towerOfHanoi,
-  };
+        GameType.schulteGrid => schulteGrid,
+        GameType.reactionTime => reactionTime,
+        GameType.numberMemory => numberMemory,
+        GameType.stroopTest => stroopTest,
+        GameType.visualMemory => visualMemory,
+        GameType.sequenceMemory => sequenceMemory,
+        GameType.numberMatrix => numberMatrix,
+        GameType.reverseMemory => reverseMemory,
+        GameType.slidingPuzzle => slidingPuzzle,
+        GameType.towerOfHanoi => towerOfHanoi,
+      };
 }
 
 final GoRouter appRouter = GoRouter(
-  initialLocation: AppRoutes.dashboard,
+  initialLocation: AppRoutes.splash,
   debugLogDiagnostics: false,
   routes: [
+    GoRoute(
+      path: AppRoutes.splash,
+      pageBuilder: (ctx, state) => const NoTransitionPage(
+        child: SplashScreen(),
+      ),
+    ),
     GoRoute(
       path: AppRoutes.dashboard,
       pageBuilder: (ctx, state) => _slidePage(const DashboardScreen()),

@@ -92,7 +92,7 @@ class AppL10nAr extends AppL10n {
 
   @override
   String get reactionTimeDesc =>
-      'اضغط على اللون الصحيح بناءً على لون الخط — لا على معنى الكلمة';
+      'انتظر حتى تتحول الشاشة إلى اللون الأخضر ثم اضغط بأسرع ما يمكن';
 
   @override
   String get numberMemoryName => 'ذاكرة الأرقام';

@@ -10,6 +10,8 @@ import '../../../core/utils/haptics.dart';
 import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../../common_widgets/difficulty_option_list.dart';
+import '../game_economy_helper.dart';
 import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
@@ -90,7 +92,14 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
 
   // ─── Game logic ─────────────────────────────────────────────────────────────
 
-  void _startGame() {
+  Future<void> _startGame() async {
+    final canStart = await GameEconomyHelper.consumeEntryCost(
+      context,
+      ref,
+      GameType.towerOfHanoi,
+    );
+    if (!canStart) return;
+
     // Peg 0 = all discs: [diskCount, diskCount-1, ..., 1] (bottom to top)
     final discs = List.generate(_diskCount, (i) => _diskCount - i);
     setState(() {
@@ -197,19 +206,37 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
   }
 
   Future<void> _finishGame() async {
+    final difficultyTier = _diskCount - 2;
     final record = ScoreRecord(
       gameId: GameType.towerOfHanoi.id,
       score: _moves.toDouble(),
       timestamp: DateTime.now(),
-      difficulty: _diskCount - 2,
+      difficulty: difficultyTier,
       metadata: {'diskCount': _diskCount, 'moves': _moves},
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
     await ref.read(abilityProvider.notifier).recompute();
 
-    final best = ref.read(bestScoreProvider(GameType.towerOfHanoi.id));
+    final sameDifficulty = ref
+        .read(scoreRepoProvider)
+        .getScoresForGame(GameType.towerOfHanoi.id)
+        .where((s) => s.difficulty == difficultyTier)
+        .toList(growable: false);
+    final best = sameDifficulty.isEmpty
+        ? null
+        : sameDifficulty.reduce((a, b) => a.score < b.score ? a : b);
     final isNewRecord = best == null || _moves <= best.score;
+    final optimalMoves = ((1 << _diskCount) - 1).toDouble();
+    final performance = (optimalMoves / _moves.clamp(1, 9999)).clamp(0.0, 1.0);
+    final economy = await GameEconomyHelper.settleGame(
+      ref,
+      gameType: GameType.towerOfHanoi,
+      won: true,
+      difficulty: difficultyTier,
+      isNewRecord: isNewRecord,
+      performance: performance.toDouble(),
+    );
 
     if (!mounted) return;
     context.pushReplacement(AppRoutes.result, extra: {
@@ -218,6 +245,14 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
       'metric': 'moves',
       'lowerIsBetter': true,
       'isNewRecord': isNewRecord,
+      'bestByDifficulty': true,
+      'difficulty': difficultyTier,
+      'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
+      'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
+      'economyWon': economy.won,
+      'economyCoins': economy.coinsGained,
+      'economyXp': economy.xpGained,
+      'economyLevel': economy.newLevel,
     });
   }
 
@@ -322,84 +357,31 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
             const SizedBox(height: 32),
 
             // Difficulty selector
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [3, 4, 5].map((n) {
-                final sel = _diskCount == n;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: GestureDetector(
-                    onTap: () {
-                      Haptics.selection();
-                      setState(() => _diskCount = n);
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      width: 106,
-                      height: 84,
-                      decoration: BoxDecoration(
-                        gradient: sel
-                            ? LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  AppColors.towerOfHanoi
-                                      .withValues(alpha: 0.28),
-                                  AppColors.towerOfHanoi
-                                      .withValues(alpha: 0.10),
-                                ],
-                              )
-                            : const LinearGradient(
-                                colors: [
-                                  Color(0xFF1C1C28),
-                                  Color(0xFF111118),
-                                ],
-                              ),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color:
-                              sel ? AppColors.towerOfHanoi : AppColors.border,
-                          width: sel ? 1.5 : 0.5,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: DifficultyOptionList<int>(
+                options: [3, 4, 5]
+                    .map(
+                      (n) => DifficultyOption(
+                        value: n,
+                        badge: useArabicDigits(context)
+                            ? n.toArabicDigits()
+                            : '$n',
+                        title: _difficultyLabel(context, n),
+                        subtitle: _difficultyDetail(context, n),
+                        details: tr(
+                          context,
+                          'الهدف: الوصول بأقل عدد حركات ممكن',
+                          'Goal: finish in the fewest moves',
+                          '目标：用最少步数完成搬运',
                         ),
-                        boxShadow: sel
-                            ? [
-                                BoxShadow(
-                                  color: AppColors.towerOfHanoi
-                                      .withValues(alpha: 0.28),
-                                  blurRadius: 14,
-                                )
-                              ]
-                            : null,
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _difficultyLabel(context, n),
-                            style: AppTypography.labelLarge.copyWith(
-                              color: sel
-                                  ? AppColors.towerOfHanoi
-                                  : AppColors.textPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _difficultyDetail(context, n),
-                            style: AppTypography.caption.copyWith(
-                              color: sel
-                                  ? AppColors.towerOfHanoi
-                                  : AppColors.textSecondary,
-                              fontSize: 11,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
+                    )
+                    .toList(),
+                selectedValue: _diskCount,
+                accentColor: AppColors.towerOfHanoi,
+                onChanged: (value) => setState(() => _diskCount = value),
+              ),
             ),
             const SizedBox(height: 40),
             SizedBox(

@@ -11,6 +11,8 @@ import '../../../core/utils/haptics.dart';
 import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../../common_widgets/difficulty_option_list.dart';
+import '../game_economy_helper.dart';
 import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
@@ -51,7 +53,14 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
     super.dispose();
   }
 
-  void _startGame() {
+  Future<void> _startGame() async {
+    final canStart = await GameEconomyHelper.consumeEntryCost(
+      context,
+      ref,
+      GameType.slidingPuzzle,
+    );
+    if (!canStart) return;
+
     final tiles = _generateSolvable(_gridSize, _shuffleMoves(_gridSize));
     setState(() {
       _tiles = tiles;
@@ -180,6 +189,21 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
 
     final best = ref.read(bestScoreProvider(GameType.slidingPuzzle.id));
     final isNewRecord = best == null || _moves <= best.score;
+    final moveTarget = switch (_gridSize) {
+      3 => 45.0,
+      4 => 140.0,
+      _ => 260.0,
+    };
+    final performance =
+        (1 - ((_moves - moveTarget) / (moveTarget * 1.2))).clamp(0.0, 1.0);
+    final economy = await GameEconomyHelper.settleGame(
+      ref,
+      gameType: GameType.slidingPuzzle,
+      won: true,
+      difficulty: _gridSize - 2,
+      isNewRecord: isNewRecord,
+      performance: performance.toDouble(),
+    );
 
     if (!mounted) return;
 
@@ -193,6 +217,12 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
       'metric': 'moves',
       'lowerIsBetter': true,
       'isNewRecord': isNewRecord,
+      'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
+      'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
+      'economyWon': economy.won,
+      'economyCoins': economy.coinsGained,
+      'economyXp': economy.xpGained,
+      'economyLevel': economy.newLevel,
     });
   }
 
@@ -248,41 +278,56 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
 
   Widget _buildConfig(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
-              children: <Widget>[
-                _SizePill(
-                  label: tr(context, '٣×٣', '3×3', '3×3'),
-                  sublabel:
-                      '${_difficultyLabel(context, 3)} · ${_difficultyHint(context, 3)}',
-                  selected: _gridSize == 3,
-                  color: AppColors.slidingPuzzle,
-                  onTap: () => setState(() => _gridSize = 3),
-                ),
-                _SizePill(
-                  label: tr(context, '٤×٤', '4×4', '4×4'),
-                  sublabel:
-                      '${_difficultyLabel(context, 4)} · ${_difficultyHint(context, 4)}',
-                  selected: _gridSize == 4,
-                  color: AppColors.slidingPuzzle,
-                  onTap: () => setState(() => _gridSize = 4),
-                ),
-                _SizePill(
-                  label: tr(context, '٥×٥', '5×5', '5×5'),
-                  sublabel:
-                      '${_difficultyLabel(context, 5)} · ${_difficultyHint(context, 5)}',
-                  selected: _gridSize == 5,
-                  color: AppColors.slidingPuzzle,
-                  onTap: () => setState(() => _gridSize = 5),
-                ),
-              ],
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: DifficultyOptionList<int>(
+                options: [
+                  DifficultyOption(
+                    value: 3,
+                    badge: tr(context, '٣×٣', '3×3', '3×3'),
+                    title: _difficultyLabel(context, 3),
+                    subtitle: _difficultyHint(context, 3),
+                    details: tr(
+                      context,
+                      '٨ قطع متحركة، مناسبة للبداية',
+                      '8 movable tiles, beginner friendly',
+                      '8 个拼图块，适合入门',
+                    ),
+                  ),
+                  DifficultyOption(
+                    value: 4,
+                    badge: tr(context, '٤×٤', '4×4', '4×4'),
+                    title: _difficultyLabel(context, 4),
+                    subtitle: _difficultyHint(context, 4),
+                    details: tr(
+                      context,
+                      '١٥ قطعة بتوازن بين السرعة والتخطيط',
+                      '15 tiles with balanced planning pressure',
+                      '15 个拼图块，规划与速度并重',
+                    ),
+                  ),
+                  DifficultyOption(
+                    value: 5,
+                    badge: tr(context, '٥×٥', '5×5', '5×5'),
+                    title: _difficultyLabel(context, 5),
+                    subtitle: _difficultyHint(context, 5),
+                    details: tr(
+                      context,
+                      '٢٤ قطعة لوضع الخبراء',
+                      '24 tiles for expert-level challenge',
+                      '24 个拼图块，高手挑战',
+                    ),
+                  ),
+                ],
+                selectedValue: _gridSize,
+                accentColor: AppColors.slidingPuzzle,
+                onChanged: (value) => setState(() => _gridSize = value),
+              ),
             ),
             const SizedBox(height: 48),
             SizedBox(
@@ -380,60 +425,6 @@ class _SlidingPuzzleScreenState extends ConsumerState<SlidingPuzzleScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SizePill extends StatelessWidget {
-  final String label;
-  final String sublabel;
-  final bool selected;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _SizePill({
-    required this.label,
-    required this.sublabel,
-    required this.selected,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Haptics.selection();
-        onTap();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 132,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? color.withValues(alpha: 0.15)
-              : AppColors.surfaceElevated,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? color : AppColors.border,
-            width: selected ? 1.5 : 0.5,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(label,
-                style: AppTypography.headingSmall
-                    .copyWith(color: selected ? color : AppColors.textPrimary)),
-            Text(sublabel,
-                style: AppTypography.caption.copyWith(
-                    color: selected ? color : AppColors.textSecondary),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis),
-          ],
-        ),
       ),
     );
   }

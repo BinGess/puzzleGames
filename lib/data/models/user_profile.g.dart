@@ -19,19 +19,25 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
     return UserProfile(
       name: fields[0] as String?,
       age: fields[1] as int?,
-      languageCode: fields[2] as String,
-      soundEnabled: fields[3] as bool,
+      languageCode: (fields[2] as String?) ?? 'system',
+      soundEnabled: (fields[3] as bool?) ?? true,
       soundVolumeLevel: (fields[7] as int?) ?? 2,
-      hapticsEnabled: fields[4] as bool,
-      fontScale: fields[5] as double,
-      createdAt: fields[6] as DateTime,
+      hapticsEnabled: (fields[4] as bool?) ?? true,
+      fontScale: (fields[5] as double?) ?? 1.12,
+      createdAt: (fields[6] as DateTime?) ?? DateTime.now(),
+      coins: (fields[8] as int?) ?? 100,
+      xp: (fields[9] as int?) ?? 0,
+      level: (fields[10] as int?) ?? 1,
+      lifetimeEarned: (fields[11] as int?) ?? 0,
+      lifetimeSpent: (fields[12] as int?) ?? 0,
+      lastDailySupplyAt: fields[13] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, UserProfile obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -47,7 +53,19 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       ..writeByte(5)
       ..write(obj.fontScale)
       ..writeByte(6)
-      ..write(obj.createdAt);
+      ..write(obj.createdAt)
+      ..writeByte(8)
+      ..write(obj.coins)
+      ..writeByte(9)
+      ..write(obj.xp)
+      ..writeByte(10)
+      ..write(obj.level)
+      ..writeByte(11)
+      ..write(obj.lifetimeEarned)
+      ..writeByte(12)
+      ..write(obj.lifetimeSpent)
+      ..writeByte(13)
+      ..write(obj.lastDailySupplyAt);
   }
 
   @override

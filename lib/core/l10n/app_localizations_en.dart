@@ -92,7 +92,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get reactionTimeDesc =>
-      'Tap the correct color button based on the font color — not the word meaning';
+      'Wait for the screen to turn green, then tap as fast as possible';
 
   @override
   String get numberMemoryName => 'Number Memory';

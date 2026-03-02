@@ -5,7 +5,9 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/l10n/app_localizations.dart';
 import '../../core/router/app_router.dart';
+import '../../core/utils/arabic_numerals.dart';
 import '../../core/utils/haptics.dart';
+import '../../core/utils/tr.dart';
 import '../../domain/enums/game_type.dart';
 import '../providers/app_providers.dart';
 import 'widgets/game_card.dart';
@@ -16,6 +18,8 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppL10n.of(context);
+    final profile = ref.watch(profileProvider);
+    final progress = ref.watch(economyProgressProvider);
 
     ref.watch(scoresChangedProvider);
 
@@ -56,6 +60,46 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                  child: _EconomyOverview(
+                    coins: profile.coins,
+                    level: progress.level,
+                    xpInLevel: progress.xpInLevel,
+                    xpForNextLevel: progress.xpForNextLevel,
+                    canClaimDaily: ref
+                        .read(profileProvider.notifier)
+                        .canClaimDailySupply(),
+                    onClaimDaily: () async {
+                      Haptics.selection();
+                      final result = await ref
+                          .read(profileProvider.notifier)
+                          .claimDailySupply();
+                      if (!context.mounted) return;
+                      final text = result.claimed
+                          ? tr(
+                              context,
+                              'تم استلام الإمداد اليومي: +${result.coinsGranted.toArabicDigits()} عملة',
+                              'Daily supply claimed: +${result.coinsGranted} coins',
+                              '已领取每日补给：+${result.coinsGranted} 金币',
+                            )
+                          : tr(
+                              context,
+                              'إمداد اليوم تم استلامه بالفعل',
+                              'Daily supply already claimed',
+                              '今日补给已领取',
+                            );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          behavior: SnackBarBehavior.floating,
+                          content: Text(text),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(14, 0, 14, 40),
                 sliver: SliverLayoutBuilder(
@@ -118,6 +162,7 @@ class DashboardScreen extends ConsumerWidget {
 
   GameCardData _buildCardData(GameType type, WidgetRef ref) {
     final best = ref.watch(bestScoreProvider(type.id));
+    final entryCost = ref.read(economyServiceProvider).entryCostFor(type);
     return GameCardData(
       type: type,
       nameAr: _nameAr(type),
@@ -125,6 +170,7 @@ class DashboardScreen extends ConsumerWidget {
       nameZh: _nameZh(type),
       icon: _icon(type),
       accentColor: _accent(type),
+      entryCost: entryCost,
       bestScore: best,
     );
   }
@@ -193,6 +239,183 @@ class DashboardScreen extends ConsumerWidget {
         GameType.slidingPuzzle => AppColors.slidingPuzzle,
         GameType.towerOfHanoi => AppColors.towerOfHanoi,
       };
+}
+
+class _EconomyOverview extends StatelessWidget {
+  final int coins;
+  final int level;
+  final int xpInLevel;
+  final int xpForNextLevel;
+  final bool canClaimDaily;
+  final VoidCallback onClaimDaily;
+
+  const _EconomyOverview({
+    required this.coins,
+    required this.level,
+    required this.xpInLevel,
+    required this.xpForNextLevel,
+    required this.canClaimDaily,
+    required this.onClaimDaily,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final coinsText =
+        useArabicDigits(context) ? coins.toArabicDigits() : '$coins';
+    final levelText =
+        useArabicDigits(context) ? level.toArabicDigits() : '$level';
+    final xpText = useArabicDigits(context)
+        ? '${xpInLevel.toArabicDigits()}/${xpForNextLevel.toArabicDigits()}'
+        : '$xpInLevel/$xpForNextLevel';
+    final progress = xpForNextLevel <= 0
+        ? 0.0
+        : (xpInLevel / xpForNextLevel).clamp(0.0, 1.0);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.border.withValues(alpha: 0.85),
+          width: 0.8,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _StatPill(
+                icon: Icons.monetization_on_rounded,
+                label: tr(context, 'العملات', 'Coins', '金币'),
+                value: coinsText,
+                color: AppColors.gold,
+              ),
+              const SizedBox(width: 10),
+              _StatPill(
+                icon: Icons.workspace_premium_rounded,
+                label: 'Lv',
+                value: levelText,
+                color: AppColors.sequenceMemory,
+              ),
+              const Spacer(),
+              OutlinedButton.icon(
+                onPressed: canClaimDaily ? onClaimDaily : null,
+                icon: Icon(
+                  canClaimDaily
+                      ? Icons.card_giftcard_rounded
+                      : Icons.check_rounded,
+                  size: 16,
+                ),
+                label: Text(
+                  canClaimDaily
+                      ? tr(context, 'إمداد يومي', 'Daily Supply', '每日补给')
+                      : tr(context, 'تم الاستلام', 'Claimed', '已领取'),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: canClaimDaily
+                      ? AppColors.goldBright
+                      : AppColors.textSecondary,
+                  side: BorderSide(
+                    color: canClaimDaily
+                        ? AppColors.gold.withValues(alpha: 0.65)
+                        : AppColors.border,
+                    width: 0.8,
+                  ),
+                  backgroundColor: canClaimDaily
+                      ? AppColors.gold.withValues(alpha: 0.10)
+                      : AppColors.surfaceElevated,
+                  textStyle: AppTypography.caption.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Row(
+            children: [
+              Text(
+                tr(context, 'تقدّم المستوى', 'Level Progress', '等级进度'),
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                xpText,
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              minHeight: 6,
+              value: progress,
+              backgroundColor: AppColors.surfaceElevated,
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.gold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatPill({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.34), width: 0.8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            '$label ',
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            value,
+            style: AppTypography.labelMedium.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DashboardBackground extends StatelessWidget {

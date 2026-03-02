@@ -6,6 +6,7 @@ import '../../data/datasources/hive_datasource.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../data/repositories/score_repository.dart';
 import '../../data/repositories/analytics_repository.dart';
+import '../../domain/services/economy_service.dart';
 import '../../domain/services/lq_calculator_service.dart';
 import '../../domain/enums/game_type.dart';
 import '../../core/constants/app_font_scale.dart';
@@ -28,15 +29,23 @@ final lqCalculatorProvider = Provider<LqCalculatorService>(
   (_) => LqCalculatorService(),
 );
 
+final economyServiceProvider = Provider<EconomyService>(
+  (_) => EconomyService(),
+);
+
 // ─── User Profile ────────────────────────────────────────────────────
 final profileProvider = StateNotifierProvider<ProfileNotifier, UserProfile>(
-  (ref) => ProfileNotifier(ref.read(profileRepoProvider)),
+  (ref) => ProfileNotifier(
+    ref.read(profileRepoProvider),
+    ref.read(economyServiceProvider),
+  ),
 );
 
 class ProfileNotifier extends StateNotifier<UserProfile> {
   final ProfileRepository _repo;
+  final EconomyService _economy;
 
-  ProfileNotifier(this._repo) : super(_repo.profile) {
+  ProfileNotifier(this._repo, this._economy) : super(_repo.profile) {
     // Sync haptics state
     Haptics.setEnabled(state.hapticsEnabled);
     // Sync sound state
@@ -105,6 +114,67 @@ class ProfileNotifier extends StateNotifier<UserProfile> {
     await _repo.updateFontScale(AppFontScale.normalize(scale));
     state = _repo.profile;
   }
+
+  int entryCostFor(GameType gameType) => _economy.entryCostFor(gameType);
+
+  bool canClaimDailySupply() => _economy.canClaimDailySupply(state);
+
+  Future<bool> consumeEntryCost(GameType gameType) async {
+    if (!_economy.canAfford(state, gameType)) return false;
+    final next = _economy.consumeEntryCost(state, gameType);
+    await _repo.saveProfile(next);
+    state = next;
+    return true;
+  }
+
+  Future<EconomyClaimResult> claimDailySupply() async {
+    final claim = _economy.claimDailySupply(state);
+    if (!claim.claimed) return claim;
+    final next = _economy.applyDailySupply(
+      state,
+      now: DateTime.now(),
+      claim: claim,
+    );
+    await _repo.saveProfile(next);
+    state = next;
+    return claim;
+  }
+
+  Future<EconomySettlement> settleGame({
+    required GameType gameType,
+    required bool won,
+    required int difficulty,
+    required bool isNewRecord,
+    required double performance,
+  }) async {
+    final settlement = _economy.settleGame(
+      profile: state,
+      gameType: gameType,
+      won: won,
+      difficulty: difficulty,
+      isNewRecord: isNewRecord,
+      performance: performance,
+    );
+    final next = _economy.applySettlement(state, settlement);
+    if (!identical(next, state)) {
+      await _repo.saveProfile(next);
+      state = next;
+    }
+    return settlement;
+  }
+
+  Future<void> resetEconomy() async {
+    final reset = state.copyWith(
+      coins: UserProfile.defaults.coins,
+      xp: 0,
+      level: 1,
+      lifetimeEarned: 0,
+      lifetimeSpent: 0,
+      clearLastDailySupplyAt: true,
+    );
+    await _repo.saveProfile(reset);
+    state = reset;
+  }
 }
 
 // ─── Ability / LQ ────────────────────────────────────────────────────
@@ -171,4 +241,9 @@ final bestScoreProvider = Provider.family<ScoreRecord?, String>((ref, gameId) {
         gameId,
         lowerIsBetter: gameType.lowerIsBetter,
       );
+});
+
+final economyProgressProvider = Provider<EconomyProgress>((ref) {
+  final profile = ref.watch(profileProvider);
+  return ref.read(economyServiceProvider).progressFor(profile);
 });

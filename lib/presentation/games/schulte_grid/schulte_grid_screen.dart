@@ -10,6 +10,8 @@ import '../../../core/utils/haptics.dart';
 import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../../common_widgets/difficulty_option_list.dart';
+import '../game_economy_helper.dart';
 import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
@@ -54,7 +56,11 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen> {
     super.dispose();
   }
 
-  void _startGame() {
+  Future<void> _startGame() async {
+    final canStart = await GameEconomyHelper.consumeEntryCost(
+        context, ref, GameType.schulteGrid);
+    if (!canStart) return;
+
     final count = _gridSize * _gridSize;
     final nums = List.generate(count, (i) => i + 1)..shuffle();
     setState(() {
@@ -125,6 +131,15 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen> {
 
     final best = ref.read(bestScoreProvider(GameType.schulteGrid.id));
     final isNewRecord = best == null || elapsedMs <= best.score;
+    final performance = (1 - ((elapsedMs - 10000) / 40000)).clamp(0.0, 1.0);
+    final economy = await GameEconomyHelper.settleGame(
+      ref,
+      gameType: GameType.schulteGrid,
+      won: true,
+      difficulty: _gridSize - 2,
+      isNewRecord: isNewRecord,
+      performance: performance.toDouble(),
+    );
 
     if (!mounted) return;
     context.pushReplacement(AppRoutes.result, extra: {
@@ -134,6 +149,12 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen> {
       'lowerIsBetter': true,
       'isNewRecord': isNewRecord,
       'gridSize': _gridSize,
+      'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
+      'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
+      'economyWon': economy.won,
+      'economyCoins': economy.coinsGained,
+      'economyXp': economy.xpGained,
+      'economyLevel': economy.newLevel,
     });
   }
 
@@ -177,7 +198,7 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen> {
   // ─── Config / difficulty selection ───────────────────────────────
   Widget _buildConfig(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -188,33 +209,66 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _SizeButton(
-                  label: tr(context, '٣×٣', '3×3', '3×3'),
-                  sublabel: tr(context, 'سهل', 'Easy', '简单'),
-                  selected: _gridSize == 3,
-                  color: AppColors.schulte,
-                  onTap: () => setState(() => _gridSize = 3),
-                ),
-                const SizedBox(width: 12),
-                _SizeButton(
-                  label: tr(context, '٤×٤', '4×4', '4×4'),
-                  sublabel: tr(context, 'متوسط', 'Medium', '中等'),
-                  selected: _gridSize == 4,
-                  color: AppColors.schulte,
-                  onTap: () => setState(() => _gridSize = 4),
-                ),
-                const SizedBox(width: 12),
-                _SizeButton(
-                  label: tr(context, '٥×٥', '5×5', '5×5'),
-                  sublabel: tr(context, 'صعب', 'Hard', '困难'),
-                  selected: _gridSize == 5,
-                  color: AppColors.schulte,
-                  onTap: () => setState(() => _gridSize = 5),
-                ),
-              ],
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: DifficultyOptionList<int>(
+                options: [
+                  DifficultyOption(
+                    value: 3,
+                    badge: tr(context, '٣×٣', '3×3', '3×3'),
+                    title: tr(context, 'سهل', 'Easy', '简单'),
+                    subtitle: tr(
+                      context,
+                      '٩ أرقام للتهيئة السريعة',
+                      '9 numbers for a quick warm-up',
+                      '9 个数字，轻松热身',
+                    ),
+                    details: tr(
+                      context,
+                      'إيقاع مريح لتدريب الملاحظة والتركيز',
+                      'Relaxed pace for focus and scanning',
+                      '节奏舒适，适合训练观察与专注',
+                    ),
+                  ),
+                  DifficultyOption(
+                    value: 4,
+                    badge: tr(context, '٤×٤', '4×4', '4×4'),
+                    title: tr(context, 'متوسط', 'Medium', '中等'),
+                    subtitle: tr(
+                      context,
+                      '١٦ رقمًا بتحدٍ متوازن',
+                      '16 numbers with balanced challenge',
+                      '16 个数字，难度平衡',
+                    ),
+                    details: tr(
+                      context,
+                      'الخيار الأنسب لتحسين السرعة مع الدقة',
+                      'Great balance between speed and accuracy',
+                      '兼顾速度与准确率的推荐档位',
+                    ),
+                  ),
+                  DifficultyOption(
+                    value: 5,
+                    badge: tr(context, '٥×٥', '5×5', '5×5'),
+                    title: tr(context, 'صعب', 'Hard', '困难'),
+                    subtitle: tr(
+                      context,
+                      '٢٥ رقمًا للتركيز العالي',
+                      '25 numbers for high-intensity focus',
+                      '25 个数字，高强度挑战',
+                    ),
+                    details: tr(
+                      context,
+                      'مناسب لمن يريد اختبار رد الفعل والقدرة على المسح',
+                      'Built for advanced speed scanning',
+                      '适合进阶玩家冲击极限反应',
+                    ),
+                  ),
+                ],
+                selectedValue: _gridSize,
+                accentColor: AppColors.schulte,
+                onChanged: (value) => setState(() => _gridSize = value),
+              ),
             ),
             const SizedBox(height: 48),
             SizedBox(
@@ -276,69 +330,6 @@ class _SchulteGridScreenState extends ConsumerState<SchulteGridScreen> {
                     onTap: () => _onCellTap(i),
                   );
                 },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Size selection button ────────────────────────────────────────────
-class _SizeButton extends StatelessWidget {
-  final String label;
-  final String sublabel;
-  final bool selected;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _SizeButton({
-    required this.label,
-    required this.sublabel,
-    required this.selected,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Haptics.selection();
-        onTap();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: selected
-                ? [color.withValues(alpha: 0.25), color.withValues(alpha: 0.1)]
-                : [const Color(0xFF1C1C28), const Color(0xFF111118)],
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? color : AppColors.border,
-            width: selected ? 1.5 : 0.5,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: AppTypography.headingSmall.copyWith(
-                color: selected ? color : AppColors.textPrimary,
-              ),
-            ),
-            Text(
-              sublabel,
-              style: AppTypography.caption.copyWith(
-                color: selected ? color : AppColors.textSecondary,
               ),
             ),
           ],

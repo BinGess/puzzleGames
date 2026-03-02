@@ -34,6 +34,24 @@ class UserProfile extends HiveObject {
   @HiveField(6)
   final DateTime createdAt;
 
+  @HiveField(8)
+  final int coins;
+
+  @HiveField(9)
+  final int xp;
+
+  @HiveField(10)
+  final int level;
+
+  @HiveField(11)
+  final int lifetimeEarned;
+
+  @HiveField(12)
+  final int lifetimeSpent;
+
+  @HiveField(13)
+  final DateTime? lastDailySupplyAt;
+
   UserProfile({
     this.name,
     this.age,
@@ -42,6 +60,12 @@ class UserProfile extends HiveObject {
     this.soundVolumeLevel = 2,
     this.hapticsEnabled = true,
     this.fontScale = 1.12,
+    this.coins = 100,
+    this.xp = 0,
+    this.level = 1,
+    this.lifetimeEarned = 0,
+    this.lifetimeSpent = 0,
+    this.lastDailySupplyAt,
     required this.createdAt,
   });
 
@@ -51,6 +75,12 @@ class UserProfile extends HiveObject {
         soundVolumeLevel: 2,
         hapticsEnabled: true,
         fontScale: 1.12,
+        coins: 100,
+        xp: 0,
+        level: 1,
+        lifetimeEarned: 0,
+        lifetimeSpent: 0,
+        lastDailySupplyAt: null,
         createdAt: DateTime.now(),
       );
 
@@ -62,6 +92,13 @@ class UserProfile extends HiveObject {
     int? soundVolumeLevel,
     bool? hapticsEnabled,
     double? fontScale,
+    int? coins,
+    int? xp,
+    int? level,
+    int? lifetimeEarned,
+    int? lifetimeSpent,
+    DateTime? lastDailySupplyAt,
+    bool clearLastDailySupplyAt = false,
   }) =>
       UserProfile(
         name: name ?? this.name,
@@ -71,6 +108,14 @@ class UserProfile extends HiveObject {
         soundVolumeLevel: soundVolumeLevel ?? this.soundVolumeLevel,
         hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
         fontScale: fontScale ?? this.fontScale,
+        coins: coins ?? this.coins,
+        xp: xp ?? this.xp,
+        level: level ?? this.level,
+        lifetimeEarned: lifetimeEarned ?? this.lifetimeEarned,
+        lifetimeSpent: lifetimeSpent ?? this.lifetimeSpent,
+        lastDailySupplyAt: clearLastDailySupplyAt
+            ? null
+            : (lastDailySupplyAt ?? this.lastDailySupplyAt),
         createdAt: createdAt,
       );
 }

@@ -90,7 +90,7 @@ class AppL10nZh extends AppL10n {
   String get reactionTimeNameEn => 'Reaction Time';
 
   @override
-  String get reactionTimeDesc => '根据字体颜色点击正确按钮，而非文字含义';
+  String get reactionTimeDesc => '等待屏幕变绿后，尽快点击';
 
   @override
   String get numberMemoryName => '数字记忆';

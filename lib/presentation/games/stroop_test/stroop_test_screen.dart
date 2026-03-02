@@ -11,6 +11,8 @@ import '../../../core/utils/haptics.dart';
 import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../../common_widgets/difficulty_option_list.dart';
+import '../game_economy_helper.dart';
 import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
@@ -41,10 +43,11 @@ class StroopTestScreen extends ConsumerStatefulWidget {
 }
 
 class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
-  static const _totalStimuli = 20;
+  static int _recommendedDifficulty = 1;
 
   final _rng = Random();
   _StroopPhase _phase = _StroopPhase.config;
+  int _difficulty = _recommendedDifficulty;
 
   // Current stimulus
   late _StroopColor _word; // the word displayed (meaning = distractor)
@@ -53,10 +56,16 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
   // Scoring
   int _correct = 0;
   int _current = 0;
+  int _streak = 0;
+  int _bestStreak = 0;
+  int _challengePoints = 0;
+  int _timeouts = 0;
+  bool _inputLocked = false;
   final List<double> _reactionTimes = [];
 
   // Timer
   final Stopwatch _stopwatch = Stopwatch();
+  Timer? _stimulusTimer;
 
   // Flash feedback
   Color? _flashColor;
@@ -66,22 +75,110 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      _hydrateUnlockedDifficulty();
       Haptics.setSoundGameId(GameType.stroopTest.id);
       GameRulesHelper.ensureShownOnce(context, GameType.stroopTest);
     });
   }
 
+  void _hydrateUnlockedDifficulty() {
+    final scores =
+        ref.read(scoreRepoProvider).getScoresForGame(GameType.stroopTest.id);
+    var unlocked = 1;
+    for (final s in scores.take(60)) {
+      final diff = s.difficulty.clamp(1, 3);
+      final total = (s.metadata['total'] as num?)?.toInt() ?? 0;
+      final correct =
+          (s.metadata['correct'] as num?)?.toInt() ?? s.score.round();
+      if (total <= 0) continue;
+      final acc = correct / total;
+      if (diff == 1 && acc >= 0.72) unlocked = max(unlocked, 2);
+      if (diff == 2 && acc >= 0.80) unlocked = max(unlocked, 3);
+    }
+    _recommendedDifficulty = max(_recommendedDifficulty, unlocked);
+    if (mounted) {
+      setState(() => _difficulty = max(_difficulty, _recommendedDifficulty));
+    }
+  }
+
   @override
   void dispose() {
+    _stimulusTimer?.cancel();
     _stopwatch.stop();
     super.dispose();
   }
 
-  void _startGame() {
+  int _totalStimuliFor(int difficulty) => switch (difficulty) {
+        1 => 20,
+        2 => 28,
+        _ => 36,
+      };
+
+  int get _totalStimuli => _totalStimuliFor(_difficulty);
+
+  int _timeLimitMsFor(int difficulty) => switch (difficulty) {
+        1 => 0,
+        2 => 2600,
+        _ => 2000,
+      };
+
+  int get _timeLimitMs => _timeLimitMsFor(_difficulty);
+
+  int get _basePoints => switch (_difficulty) {
+        1 => 10,
+        2 => 14,
+        _ => 18,
+      };
+
+  String _difficultyLabel(BuildContext context, int difficulty) =>
+      switch (difficulty) {
+        1 => tr(context, 'عادي', 'Normal', '普通'),
+        2 => tr(context, 'صعب', 'Hard', '高难度'),
+        _ => tr(context, 'تحدي', 'Challenge', '挑战'),
+      };
+
+  String _difficultyHint(BuildContext context, int difficulty) =>
+      switch (difficulty) {
+        1 => tr(context, 'إيقاع مريح', 'Warm-up pace', '热身节奏'),
+        2 => tr(context, 'أسئلة أكثر + وقت محدود', 'More rounds + time limit',
+            '更多题目 + 限时'),
+        _ => tr(context, 'سرعة عالية وعقوبة أخطاء', 'Fast pace with penalties',
+            '高节奏并带惩罚'),
+      };
+
+  int _speedBonus(double elapsedMs) {
+    if (_timeLimitMs <= 0) {
+      return max(0, ((1300 - elapsedMs) / 180).floor());
+    }
+    final leftMs = (_timeLimitMs - elapsedMs).clamp(0, _timeLimitMs).toDouble();
+    final step = _timeLimitMs / 6;
+    return (leftMs / step).floor();
+  }
+
+  void _onTimedOut() {
+    if (!mounted || _phase != _StroopPhase.playing || _inputLocked) return;
+    _stopwatch.stop();
+    _resolveAnswer(
+        isCorrect: false, elapsedMs: _timeLimitMs.toDouble(), timedOut: true);
+  }
+
+  Future<void> _startGame() async {
+    final canStart = await GameEconomyHelper.consumeEntryCost(
+      context,
+      ref,
+      GameType.stroopTest,
+    );
+    if (!canStart) return;
+
     setState(() {
       _phase = _StroopPhase.playing;
       _correct = 0;
       _current = 0;
+      _streak = 0;
+      _bestStreak = 0;
+      _challengePoints = 0;
+      _timeouts = 0;
+      _inputLocked = false;
       _reactionTimes.clear();
       _flashColor = null;
     });
@@ -94,49 +191,91 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
     _word = shuffled[0];
     _ink = shuffled.firstWhere((c) => c != _word);
 
-    setState(() => _flashColor = null);
+    _stimulusTimer?.cancel();
+    setState(() {
+      _flashColor = null;
+      _inputLocked = false;
+    });
     _stopwatch.reset();
     _stopwatch.start();
+    if (_timeLimitMs > 0) {
+      _stimulusTimer = Timer(Duration(milliseconds: _timeLimitMs), _onTimedOut);
+    }
   }
 
   void _onColorTap(Color tappedColor) {
-    if (_phase != _StroopPhase.playing) return;
+    if (_phase != _StroopPhase.playing || _inputLocked) return;
+    _stimulusTimer?.cancel();
     _stopwatch.stop();
-    final ms = _stopwatch.elapsedMilliseconds.toDouble();
+    final elapsedMs = _stopwatch.elapsedMilliseconds.toDouble();
+    _resolveAnswer(
+      isCorrect: tappedColor == _ink.value,
+      elapsedMs: elapsedMs,
+      timedOut: false,
+    );
+  }
 
-    final isCorrect = tappedColor == _ink.value;
+  void _resolveAnswer({
+    required bool isCorrect,
+    required double elapsedMs,
+    required bool timedOut,
+  }) {
+    if (_phase != _StroopPhase.playing || _inputLocked) return;
+    _inputLocked = true;
 
     if (isCorrect) {
       Haptics.light();
       _correct++;
-      _reactionTimes.add(ms);
+      _streak++;
+      _bestStreak = max(_bestStreak, _streak);
+      _reactionTimes.add(elapsedMs);
+      _challengePoints +=
+          _basePoints + _speedBonus(elapsedMs) + min(_streak, 8);
       setState(() => _flashColor = _ink.value);
     } else {
       Haptics.medium();
+      _streak = 0;
+      _challengePoints = max(0, _challengePoints - (_difficulty >= 3 ? 10 : 6));
+      if (timedOut) _timeouts++;
       setState(() => _flashColor = AppColors.error);
     }
 
     _current++;
-
     if (_current >= _totalStimuli) {
-      Future.delayed(const Duration(milliseconds: 300), _finishGame);
-    } else {
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) _nextStimulus();
-      });
+      Future.delayed(const Duration(milliseconds: 280), _finishGame);
+      return;
     }
+
+    Future.delayed(const Duration(milliseconds: 280), () {
+      if (mounted) _nextStimulus();
+    });
   }
 
   Future<void> _finishGame() async {
+    _stimulusTimer?.cancel();
+    final accuracy = _totalStimuli > 0 ? _correct / _totalStimuli : 0.0;
+    final unlockThreshold = switch (_difficulty) {
+      1 => 0.72,
+      2 => 0.80,
+      _ => 1.1,
+    };
+    final unlockedNext = _difficulty < 3 && accuracy >= unlockThreshold;
+    if (unlockedNext) {
+      _recommendedDifficulty = max(_recommendedDifficulty, _difficulty + 1);
+    }
+
     final record = ScoreRecord(
       gameId: GameType.stroopTest.id,
       score: _correct.toDouble(),
-      accuracy: _totalStimuli > 0 ? _correct / _totalStimuli : 0,
+      accuracy: accuracy,
       timestamp: DateTime.now(),
-      difficulty: 1,
+      difficulty: _difficulty,
       metadata: {
         'total': _totalStimuli,
         'correct': _correct,
+        'points': _challengePoints,
+        'bestStreak': _bestStreak,
+        'timeouts': _timeouts,
         'avgMs': _reactionTimes.isEmpty
             ? 0
             : _reactionTimes.reduce((a, b) => a + b) / _reactionTimes.length,
@@ -148,14 +287,58 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
 
     final best = ref.read(bestScoreProvider(GameType.stroopTest.id));
     final isNewRecord = best == null || _correct >= best.score;
+    final won = accuracy >= 0.68;
+    final economy = await GameEconomyHelper.settleGame(
+      ref,
+      gameType: GameType.stroopTest,
+      won: won,
+      difficulty: _difficulty,
+      isNewRecord: isNewRecord,
+      performance: accuracy.clamp(0.0, 1.0),
+    );
 
     if (!mounted) return;
+    final pointsText = useArabicDigits(context)
+        ? _challengePoints.toArabicDigits()
+        : '$_challengePoints';
+    final bonusLabel =
+        '${tr(context, 'نقاط التحدي: ', 'Challenge Points: ', '挑战积分：')}$pointsText';
+
+    String? challengeTip;
+    if (unlockedNext) {
+      final nextLabel = _difficultyLabel(context, _difficulty + 1);
+      challengeTip = tr(
+        context,
+        'تم فتح مستوى $nextLabel! العب مجددًا للتحدي الأعلى.',
+        '$nextLabel unlocked! Play again for a tougher challenge.',
+        '已解锁$nextLabel！再来一局挑战更高难度。',
+      );
+    } else if (_difficulty < 3) {
+      final need = (unlockThreshold * _totalStimuli).ceil();
+      final needText =
+          useArabicDigits(context) ? need.toArabicDigits() : '$need';
+      challengeTip = tr(
+        context,
+        'أحرز $needText إجابة صحيحة لفتح المستوى التالي.',
+        'Reach $needText correct answers to unlock the next difficulty.',
+        '答对 $needText 题可解锁下一档难度。',
+      );
+    }
+
     context.pushReplacement(AppRoutes.result, extra: {
       'gameType': GameType.stroopTest,
       'score': _correct.toDouble(),
       'metric': 'correct',
       'lowerIsBetter': false,
       'isNewRecord': isNewRecord,
+      'bonusLabel': bonusLabel,
+      'challengeTip': challengeTip,
+      'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
+      'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
+      'economyWon': economy.won,
+      'economyCoins': economy.coinsGained,
+      'economyXp': economy.xpGained,
+      'economyLevel': economy.newLevel,
     });
   }
 
@@ -175,12 +358,25 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Center(
-                child: Text(
-                  useArabicDigits(context)
-                      ? '${_correct.toArabicDigits()}/${_current.toArabicDigits()}'
-                      : '$_correct/$_current',
-                  style: AppTypography.labelLarge
-                      .copyWith(color: AppColors.stroop),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      useArabicDigits(context)
+                          ? '${_current.toArabicDigits()}/${_totalStimuli.toArabicDigits()}'
+                          : '$_current/$_totalStimuli',
+                      style: AppTypography.labelLarge
+                          .copyWith(color: AppColors.stroop),
+                    ),
+                    Text(
+                      '${tr(context, 'صحيح', 'Correct', '正确')}: ${useArabicDigits(context) ? _correct.toArabicDigits() : _correct} · ${tr(context, 'نقاط', 'Pts', '积分')}: ${useArabicDigits(context) ? _challengePoints.toArabicDigits() : _challengePoints}',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -202,7 +398,7 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
 
   Widget _buildConfig(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -226,13 +422,51 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: DifficultyOptionList<int>(
+                options: [1, 2, 3]
+                    .map(
+                      (d) => DifficultyOption(
+                        value: d,
+                        badge: '$d',
+                        title: _difficultyLabel(context, d),
+                        subtitle: _difficultyHint(context, d),
+                        details: _difficultyMeta(context, d),
+                      ),
+                    )
+                    .toList(),
+                selectedValue: _difficulty,
+                accentColor: AppColors.stroop,
+                onChanged: (value) => setState(() => _difficulty = value),
+              ),
+            ),
+            const SizedBox(height: 10),
             Text(
-              tr(context, '$_totalStimuli سؤال', '$_totalStimuli questions',
-                  '$_totalStimuli 题'),
+              tr(
+                context,
+                '${useArabicDigits(context) ? _totalStimuli.toArabicDigits() : _totalStimuli} سؤال · نقاط أسرع = مكافأة',
+                '$_totalStimuli questions · Faster answers earn bonus points',
+                '$_totalStimuli 题 · 反应越快积分越高',
+              ),
               style: AppTypography.caption,
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 4),
+            if (_difficulty > 1)
+              Text(
+                tr(
+                  context,
+                  'لكل سؤال حد زمني قصير',
+                  'Each round has a short time limit',
+                  '每题有短时限',
+                ),
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
             const SizedBox(height: 48),
             SizedBox(
               width: double.infinity,
@@ -256,6 +490,28 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
           backgroundColor: AppColors.border,
           valueColor: const AlwaysStoppedAnimation<Color>(AppColors.stroop),
           minHeight: 2,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(
+            children: [
+              Text(
+                '${tr(context, 'الصعوبة: ', 'Difficulty: ', '难度：')}${_difficultyLabel(context, _difficulty)}',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const Spacer(),
+              if (_timeLimitMs > 0)
+                Text(
+                  tr(context, 'محدود بزمن', 'Timed', '限时'),
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.stroop,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
+          ),
         ),
         Expanded(
           child: Center(
@@ -284,6 +540,26 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  String _difficultyMeta(BuildContext context, int difficulty) {
+    final rounds = _totalStimuliFor(difficulty);
+    final timeLimitMs = _timeLimitMsFor(difficulty);
+    if (timeLimitMs <= 0) {
+      return tr(
+        context,
+        '$rounds جولة بدون مؤقت',
+        '$rounds rounds with no timer',
+        '$rounds 题，无单题倒计时',
+      );
+    }
+    final seconds = (timeLimitMs / 1000).toStringAsFixed(1);
+    return tr(
+      context,
+      '$rounds جولة · ${seconds}ث لكل سؤال',
+      '$rounds rounds · $seconds s per question',
+      '$rounds 题 · 每题 $seconds 秒',
     );
   }
 

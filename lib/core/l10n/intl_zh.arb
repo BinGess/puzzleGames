@@ -27,7 +27,7 @@
   "schulteGridDesc": "按顺序从 1 到最大数字快速点击",
   "reactionTimeName": "反应时间",
   "reactionTimeNameEn": "Reaction Time",
-  "reactionTimeDesc": "根据字体颜色点击正确按钮，而非文字含义",
+  "reactionTimeDesc": "等待屏幕变绿后，尽快点击",
   "numberMemoryName": "数字记忆",
   "numberMemoryNameEn": "Number Memory",
   "numberMemoryDesc": "记住数字序列并按顺序输入",

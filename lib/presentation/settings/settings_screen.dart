@@ -114,6 +114,15 @@ class SettingsScreen extends ConsumerWidget {
                 'Delete all scores and records', '删除所有分数和记录', lang),
             onTap: () => _confirmReset(context, ref, lang),
           ),
+          _actionTile(
+            icon: Icons.workspace_premium_outlined,
+            iconColor: AppColors.gold,
+            title: _t('إعادة تعيين العملات والمستوى', 'Reset Coins & Level',
+                '重置金币与等级', lang),
+            subtitle: _t('إرجاع الاقتصاد لنقطة البداية',
+                'Reset economy progress to defaults', '将经济系统恢复到初始状态', lang),
+            onTap: () => _confirmEconomyReset(context, ref, lang),
+          ),
 
           const Divider(color: AppColors.border, thickness: 0.5, height: 32),
 
@@ -474,6 +483,56 @@ class SettingsScreen extends ConsumerWidget {
       await ScoreRepository().clearAll();
       await AnalyticsRepository().clearAll();
       ref.read(abilityProvider.notifier).recompute();
+    }
+  }
+
+  Future<void> _confirmEconomyReset(
+      BuildContext context, WidgetRef ref, String lang) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title:
+            Text(_t('إعادة تعيين الاقتصاد', 'Reset Economy', '重置经济系统', lang)),
+        content: Text(
+          _t(
+            'سيتم إعادة العملات والمستوى و XP وإمداد اليوم إلى الحالة الافتراضية.',
+            'Coins, level, XP and daily supply state will be reset.',
+            '金币、等级、经验与每日补给状态将恢复默认值。',
+            lang,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(_t('إلغاء', 'Cancel', '取消', lang)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              _t('تأكيد', 'Confirm', '确认', lang),
+              style: const TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(profileProvider.notifier).resetEconomy();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            _t(
+              'تمت إعادة تعيين العملات والمستوى',
+              'Coins and level reset',
+              '金币与等级已重置',
+              lang,
+            ),
+          ),
+        ),
+      );
     }
   }
 }

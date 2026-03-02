@@ -11,6 +11,8 @@ import '../../../core/utils/haptics.dart';
 import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../../common_widgets/difficulty_option_list.dart';
+import '../game_economy_helper.dart';
 import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
@@ -24,6 +26,7 @@ class VisualMemoryScreen extends ConsumerStatefulWidget {
 }
 
 class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
+  int _difficultyLevel = 1; // 1 easy, 2 medium, 3 hard
   int _gridSize = 3;
   _VisPhase _phase = _VisPhase.config;
 
@@ -32,6 +35,7 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
   // Round state
   int _numLit = 3; // cells to remember (grows)
   Set<int> _litIndices = {};
+  Set<int> _decoyIndices = {};
   Set<int> _tappedIndices = {};
   int _maxCorrect = 0;
 
@@ -53,11 +57,33 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
     super.dispose();
   }
 
-  void _startGame() {
+  Future<void> _startGame() async {
+    final canStart = await GameEconomyHelper.consumeEntryCost(
+      context,
+      ref,
+      GameType.visualMemory,
+    );
+    if (!canStart) return;
+
+    final startGrid = switch (_difficultyLevel) {
+      1 => 3,
+      2 => 5,
+      _ => 5,
+    };
+    final startLit = switch (_difficultyLevel) {
+      1 => 3,
+      2 => 5,
+      _ => 6,
+    };
+
     setState(() {
       _phase = _VisPhase.config;
-      _numLit = 3;
+      _gridSize = startGrid;
+      _numLit = startLit;
       _maxCorrect = 0;
+      _litIndices = {};
+      _decoyIndices = {};
+      _tappedIndices = {};
     });
     _startRound();
   }
@@ -66,17 +92,33 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
     final total = _gridSize * _gridSize;
     final indices = List.generate(total, (i) => i)..shuffle(_rng);
     final lit = indices.take(_numLit).toSet();
+    final decoys = _difficultyLevel == 3
+        ? () {
+            final available =
+                indices.where((i) => !lit.contains(i)).toList(growable: false);
+            final decoyCount = min(max(2, _numLit ~/ 2), available.length);
+            return available.take(decoyCount).toSet();
+          }()
+        : <int>{};
 
     setState(() {
       _litIndices = lit;
+      _decoyIndices = decoys;
       _tappedIndices = {};
       _phase = _VisPhase.showing;
     });
 
-    // Show for 1.5s (decreases with more cells)
-    final showMs = max(800, 1500 - (_numLit - 3) * 100);
+    // Hard mode: faster flash + green decoy highlights while showing.
+    final baseShowMs = _difficultyLevel == 3 ? 1200 : 1500;
+    final minShowMs = _difficultyLevel == 3 ? 550 : 800;
+    final showMs = max(minShowMs, baseShowMs - (_numLit - 3) * 100);
     _showTimer = Timer(Duration(milliseconds: showMs), () {
-      if (mounted) setState(() => _phase = _VisPhase.recalling);
+      if (mounted) {
+        setState(() {
+          _phase = _VisPhase.recalling;
+          _decoyIndices = {};
+        });
+      }
     });
   }
 
@@ -100,7 +142,18 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
     // Check if all lit cells tapped
     if (_tappedIndices.containsAll(_litIndices)) {
       _maxCorrect = _numLit;
-      _numLit = min(_numLit + 1, _gridSize * _gridSize - 1);
+      final totalCells = _gridSize * _gridSize;
+      final isAtCap = _numLit >= totalCells - 1;
+
+      // Auto-promotion pacing:
+      // when current grid reaches the "only one dark cell" ceiling,
+      // promote to the next grid size instead of repeating endlessly.
+      if (isAtCap && _gridSize < 5) {
+        _gridSize += 1;
+        _numLit = _gridSize; // 4x4 starts at 4 lit cells, 5x5 starts at 5
+      } else {
+        _numLit = min(_numLit + 1, totalCells - 1);
+      }
       setState(() => _phase = _VisPhase.feedback);
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) _startRound();
@@ -115,8 +168,13 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
       score: _maxCorrect.toDouble(),
       accuracy: 1.0,
       timestamp: DateTime.now(),
-      difficulty: _gridSize - 2,
-      metadata: {'gridSize': _gridSize, 'maxCells': _maxCorrect},
+      difficulty: _difficultyLevel,
+      metadata: {
+        'gridSize': _gridSize,
+        'maxCells': _maxCorrect,
+        'difficultyMode': _difficultyLevel,
+        'hardDecoy': _difficultyLevel == 3,
+      },
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
@@ -124,6 +182,17 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
 
     final best = ref.read(bestScoreProvider(GameType.visualMemory.id));
     final isNewRecord = best == null || _maxCorrect >= best.score;
+    final won = _maxCorrect >= 5;
+    final maxPossible = (_gridSize * _gridSize - 1).toDouble().clamp(1.0, 99.0);
+    final performance = (_maxCorrect / maxPossible).clamp(0.0, 1.0);
+    final economy = await GameEconomyHelper.settleGame(
+      ref,
+      gameType: GameType.visualMemory,
+      won: won,
+      difficulty: _difficultyLevel,
+      isNewRecord: isNewRecord,
+      performance: performance.toDouble(),
+    );
 
     if (!mounted) return;
     context.pushReplacement(AppRoutes.result, extra: {
@@ -132,6 +201,12 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
       'metric': 'correct',
       'lowerIsBetter': false,
       'isNewRecord': isNewRecord,
+      'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
+      'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
+      'economyWon': economy.won,
+      'economyCoins': economy.coinsGained,
+      'economyXp': economy.xpGained,
+      'economyLevel': economy.newLevel,
     });
   }
 
@@ -179,7 +254,7 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
 
   Widget _buildConfig(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -201,30 +276,66 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _SizeBtn(
-                    label: tr(context, '٣×٣', '3×3', '3×3'),
-                    sublabel: tr(context, 'سهل', 'Easy', '简单'),
-                    selected: _gridSize == 3,
-                    color: AppColors.visualMemory,
-                    onTap: () => setState(() => _gridSize = 3)),
-                const SizedBox(width: 12),
-                _SizeBtn(
-                    label: tr(context, '٤×٤', '4×4', '4×4'),
-                    sublabel: tr(context, 'متوسط', 'Medium', '中等'),
-                    selected: _gridSize == 4,
-                    color: AppColors.visualMemory,
-                    onTap: () => setState(() => _gridSize = 4)),
-                const SizedBox(width: 12),
-                _SizeBtn(
-                    label: tr(context, '٥×٥', '5×5', '5×5'),
-                    sublabel: tr(context, 'صعب', 'Hard', '困难'),
-                    selected: _gridSize == 5,
-                    color: AppColors.visualMemory,
-                    onTap: () => setState(() => _gridSize = 5)),
-              ],
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: DifficultyOptionList<int>(
+                options: [
+                  DifficultyOption(
+                    value: 1,
+                    badge: tr(context, '٣×٣', '3×3', '3×3'),
+                    title: tr(context, 'سهل', 'Easy', '简单'),
+                    subtitle: tr(
+                      context,
+                      'شبكة صغيرة للبدء بثقة',
+                      'Small grid to build confidence',
+                      '小网格，适合快速上手',
+                    ),
+                    details: tr(
+                      context,
+                      'أخطاء أقل وسهولة أعلى في تذكر المواقع',
+                      'Lower memory load for cleaner recall',
+                      '记忆负担更轻，容错更高',
+                    ),
+                  ),
+                  DifficultyOption(
+                    value: 2,
+                    badge: tr(context, '٥×٥', '5×5', '5×5'),
+                    title: tr(context, 'متوسط', 'Medium', '中等'),
+                    subtitle: tr(
+                      context,
+                      'شبكة أكبر لرفع ضغط التذكر',
+                      'Larger board for stronger memory pressure',
+                      '更大网格，记忆压力更高',
+                    ),
+                    details: tr(
+                      context,
+                      'ابدأ مباشرة من ٥×٥ دون تمهيد ٤×٤',
+                      'Starts directly at 5×5 (no 4×4 warm-up)',
+                      '中等模式直接从 5×5 开始',
+                    ),
+                  ),
+                  DifficultyOption(
+                    value: 3,
+                    badge: tr(context, '٥×٥+', '5×5+', '5×5+'),
+                    title: tr(context, 'صعب', 'Hard', '困难'),
+                    subtitle: tr(
+                      context,
+                      '٥×٥ مع ألوان تشويش أثناء العرض',
+                      '5×5 with distractor colors while showing',
+                      '5×5 且展示阶段有干扰色',
+                    ),
+                    details: tr(
+                      context,
+                      'يظهر لون أخضر مُشتت بجانب اللون الهدف البنفسجي',
+                      'Adds green decoys against the purple target cells',
+                      '除目标紫色外，会出现绿色干扰块',
+                    ),
+                  ),
+                ],
+                selectedValue: _difficultyLevel,
+                accentColor: AppColors.visualMemory,
+                onChanged: (value) => setState(() => _difficultyLevel = value),
+              ),
             ),
             const SizedBox(height: 48),
             SizedBox(
@@ -278,6 +389,9 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
                 itemCount: total,
                 itemBuilder: (ctx, i) {
                   final isLit = _litIndices.contains(i);
+                  final isDecoy = _phase == _VisPhase.showing &&
+                      _difficultyLevel == 3 &&
+                      _decoyIndices.contains(i);
                   final isTapped = _tappedIndices.contains(i);
                   final isCorrectTap = isTapped && isLit;
                   final isWrongTap = isTapped && !isLit;
@@ -285,6 +399,8 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
                   Color bgColor;
                   if (showLit && isLit) {
                     bgColor = AppColors.visualMemory.withValues(alpha: 0.7);
+                  } else if (isDecoy) {
+                    bgColor = AppColors.reaction.withValues(alpha: 0.58);
                   } else if (isCorrectTap) {
                     bgColor = AppColors.visualMemory.withValues(alpha: 0.4);
                   } else if (isWrongTap) {
@@ -305,8 +421,10 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
                         border: Border.all(
                           color: showLit && isLit
                               ? AppColors.visualMemory
-                              : AppColors.border,
-                          width: showLit && isLit ? 1.5 : 0.5,
+                              : isDecoy
+                                  ? AppColors.reaction
+                                  : AppColors.border,
+                          width: (showLit && isLit) || isDecoy ? 1.5 : 0.5,
                         ),
                         boxShadow: showLit && isLit
                             ? [
@@ -316,70 +434,20 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
                                   blurRadius: 8,
                                 )
                               ]
-                            : null,
+                            : isDecoy
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.reaction
+                                          .withValues(alpha: 0.26),
+                                      blurRadius: 8,
+                                    )
+                                  ]
+                                : null,
                       ),
                     ),
                   );
                 },
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SizeBtn extends StatelessWidget {
-  final String label;
-  final String sublabel;
-  final bool selected;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _SizeBtn({
-    required this.label,
-    required this.sublabel,
-    required this.selected,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Haptics.selection();
-        onTap();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: selected
-                ? [color.withValues(alpha: 0.25), color.withValues(alpha: 0.1)]
-                : [const Color(0xFF1C1C28), const Color(0xFF111118)],
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? color : AppColors.border,
-            width: selected ? 1.5 : 0.5,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: AppTypography.headingSmall
-                  .copyWith(color: selected ? color : AppColors.textPrimary),
-            ),
-            Text(
-              sublabel,
-              style: AppTypography.caption
-                  .copyWith(color: selected ? color : AppColors.textSecondary),
             ),
           ],
         ),

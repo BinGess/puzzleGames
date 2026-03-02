@@ -11,10 +11,14 @@ import '../../../core/utils/haptics.dart';
 import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../../common_widgets/difficulty_option_list.dart';
+import '../game_economy_helper.dart';
 import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
 enum _RevPhase { config, memorize, input, feedback }
+
+enum _ReverseDifficulty { easy, medium, hard }
 
 class ReverseMemoryScreen extends ConsumerStatefulWidget {
   const ReverseMemoryScreen({super.key});
@@ -25,18 +29,77 @@ class ReverseMemoryScreen extends ConsumerStatefulWidget {
 }
 
 class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
-  static const _maxLength = 8;
-
   final _rng = Random();
   _RevPhase _phase = _RevPhase.config;
+  _ReverseDifficulty _difficulty = _ReverseDifficulty.medium;
 
   int _currentLength = 3;
   String _currentSequence = '';
   String _inputValue = '';
   int _maxReached = 0;
+  bool _clearedChallenge = false;
+  double _roundDisplaySecs = 3;
 
   Timer? _timer;
   int _countdown = 3;
+
+  int _difficultyValue(_ReverseDifficulty difficulty) => switch (difficulty) {
+        _ReverseDifficulty.easy => 1,
+        _ReverseDifficulty.medium => 2,
+        _ReverseDifficulty.hard => 3,
+      };
+
+  int _startLengthFor(_ReverseDifficulty difficulty) => switch (difficulty) {
+        _ReverseDifficulty.easy => 3,
+        _ReverseDifficulty.medium => 4,
+        _ReverseDifficulty.hard => 5,
+      };
+
+  int _goalLengthFor(_ReverseDifficulty difficulty) => switch (difficulty) {
+        _ReverseDifficulty.easy => 9,
+        _ReverseDifficulty.medium => 12,
+        _ReverseDifficulty.hard => 14,
+      };
+
+  String _difficultyLabel(
+          BuildContext context, _ReverseDifficulty difficulty) =>
+      switch (difficulty) {
+        _ReverseDifficulty.easy => tr(context, 'سهل', 'Easy', '简单'),
+        _ReverseDifficulty.medium => tr(context, 'متوسط', 'Medium', '中等'),
+        _ReverseDifficulty.hard => tr(context, 'صعب', 'Hard', '困难'),
+      };
+
+  String _difficultyHint(BuildContext context, _ReverseDifficulty difficulty) =>
+      switch (difficulty) {
+        _ReverseDifficulty.easy => tr(context, 'حفظ مريح وبداية قصيرة',
+            'Calmer pace, shorter strings', '节奏更稳，起始更短'),
+        _ReverseDifficulty.medium => tr(context, 'ضغط متوازن مع تقلص الوقت',
+            'Balanced pressure with shrinking time', '平衡压力，时间逐步收紧'),
+        _ReverseDifficulty.hard => tr(context, 'زمن حفظ أقصر ٣→٢ث',
+            'Tighter memorize window (3s -> 2s)', '更短记忆时间（3秒->2秒）'),
+      };
+
+  String _memorizeWindowLabel(
+          BuildContext context, _ReverseDifficulty difficulty) =>
+      switch (difficulty) {
+        _ReverseDifficulty.easy =>
+          tr(context, 'حفظ ٤.٨–٢.٤ث', 'Memorize 4.8-2.4s', '记忆 4.8-2.4 秒'),
+        _ReverseDifficulty.medium =>
+          tr(context, 'حفظ ٤.٢–١.٦ث', 'Memorize 4.2-1.6s', '记忆 4.2-1.6 秒'),
+        _ReverseDifficulty.hard => tr(
+            context, 'حفظ ٣.٠→٢.٠ث', 'Memorize 3.0 -> 2.0s', '记忆 3.0 -> 2.0 秒'),
+      };
+
+  String _difficultyMeta(BuildContext context, _ReverseDifficulty difficulty) {
+    final start = _startLengthFor(difficulty);
+    final goal = _goalLengthFor(difficulty);
+    return tr(
+      context,
+      'بداية $start أرقام · هدف $goal · ${_memorizeWindowLabel(context, difficulty)}',
+      'Start $start digits · Goal $goal · ${_memorizeWindowLabel(context, difficulty)}',
+      '起始 $start 位 · 目标 $goal 位 · ${_memorizeWindowLabel(context, difficulty)}',
+    );
+  }
 
   @override
   void initState() {
@@ -54,13 +117,33 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
     super.dispose();
   }
 
-  void _startGame() {
+  Future<void> _startGame() async {
+    final canStart = await GameEconomyHelper.consumeEntryCost(
+      context,
+      ref,
+      GameType.reverseMemory,
+    );
+    if (!canStart) return;
+
     setState(() {
-      _currentLength = 3;
+      _currentLength = _startLengthFor(_difficulty);
       _inputValue = '';
       _maxReached = 0;
+      _clearedChallenge = false;
     });
     _startRound();
+  }
+
+  double _memorizeSeconds(int length) {
+    final start = _startLengthFor(_difficulty);
+    return switch (_difficulty) {
+      _ReverseDifficulty.easy =>
+        (4.8 - (length - start) * 0.20).clamp(2.4, 4.8),
+      _ReverseDifficulty.medium =>
+        (4.2 - (length - start) * 0.28).clamp(1.6, 4.2),
+      _ReverseDifficulty.hard =>
+        (3.0 - (length - start) * 0.20).clamp(2.0, 3.0),
+    };
   }
 
   void _startRound() {
@@ -68,8 +151,8 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
         List.generate(_currentLength, (_) => _rng.nextInt(10).toString());
     _currentSequence = digits.join();
 
-    final showSecs = 3 + max(0, (_currentLength - 3) * 0.5);
-    _countdown = showSecs.ceil();
+    _roundDisplaySecs = _memorizeSeconds(_currentLength);
+    _countdown = _roundDisplaySecs.ceil();
 
     setState(() {
       _phase = _RevPhase.memorize;
@@ -110,13 +193,20 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
     if (correct) {
       Haptics.light();
       _maxReached = _currentLength;
-      _currentLength = min(_currentLength + 1, _maxLength);
       setState(() {
         _phase = _RevPhase.feedback;
       });
-      Future.delayed(const Duration(milliseconds: 600), () {
-        if (mounted) _startRound();
-      });
+      if (_currentLength >= _goalLengthFor(_difficulty)) {
+        _clearedChallenge = true;
+        Future.delayed(const Duration(milliseconds: 900), () {
+          if (mounted) _finishGame();
+        });
+      } else {
+        _currentLength = min(_currentLength + 1, _goalLengthFor(_difficulty));
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (mounted) _startRound();
+        });
+      }
     } else {
       Haptics.medium();
       setState(() => _phase = _RevPhase.feedback);
@@ -132,8 +222,13 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
       gameId: GameType.reverseMemory.id,
       score: _maxReached.toDouble(),
       timestamp: DateTime.now(),
-      difficulty: 1,
-      metadata: {'maxLength': _maxReached},
+      difficulty: _difficultyValue(_difficulty),
+      metadata: {
+        'maxLength': _maxReached,
+        'targetLength': _goalLengthFor(_difficulty),
+        'clearedChallenge': _clearedChallenge,
+        'selectedDifficulty': _difficultyValue(_difficulty),
+      },
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
@@ -141,6 +236,17 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
 
     final best = ref.read(bestScoreProvider(GameType.reverseMemory.id));
     final isNewRecord = best == null || _maxReached >= best.score;
+    final won = _clearedChallenge;
+    final performance =
+        (_maxReached / _goalLengthFor(_difficulty)).clamp(0.0, 1.0);
+    final economy = await GameEconomyHelper.settleGame(
+      ref,
+      gameType: GameType.reverseMemory,
+      won: won,
+      difficulty: _difficultyValue(_difficulty),
+      isNewRecord: isNewRecord,
+      performance: performance.toDouble(),
+    );
 
     if (!mounted) return;
     context.pushReplacement(AppRoutes.result, extra: {
@@ -149,6 +255,25 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
       'metric': 'length',
       'lowerIsBetter': false,
       'isNewRecord': isNewRecord,
+      'challengeTip': _clearedChallenge
+          ? tr(
+              context,
+              'أكملت تحدي ${_goalLengthFor(_difficulty).toArabicDigits()} رقمًا! جرّب الآن تحسين السرعة.',
+              'You cleared the ${_goalLengthFor(_difficulty)}-digit challenge! Now push for speed.',
+              '你已通关 ${_goalLengthFor(_difficulty)} 位挑战！下一步挑战更快反应。',
+            )
+          : tr(
+              context,
+              'كلما زاد الطول، يقل وقت الحفظ. واصل التحدي!',
+              'As length grows, memorize time shrinks. Keep pushing!',
+              '位数越高，记忆时间越短，继续挑战！',
+            ),
+      'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
+      'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
+      'economyWon': economy.won,
+      'economyCoins': economy.coinsGained,
+      'economyXp': economy.xpGained,
+      'economyLevel': economy.newLevel,
     });
   }
 
@@ -196,7 +321,7 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
 
   Widget _buildConfig(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -219,6 +344,40 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              tr(
+                context,
+                'التحدي يمتد حسب الصعوبة المختارة، والوقت يقل تدريجيًا',
+                'Challenge length depends on selected difficulty, and display time shrinks each round',
+                '挑战长度取决于难度，展示时间会逐步缩短',
+              ),
+              style: AppTypography.caption
+                  .copyWith(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 14),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: DifficultyOptionList<_ReverseDifficulty>(
+                options: _ReverseDifficulty.values
+                    .map((d) => DifficultyOption(
+                          value: d,
+                          badge: switch (d) {
+                            _ReverseDifficulty.easy => 'E',
+                            _ReverseDifficulty.medium => 'M',
+                            _ReverseDifficulty.hard => 'H',
+                          },
+                          title: _difficultyLabel(context, d),
+                          subtitle: _difficultyHint(context, d),
+                          details: _difficultyMeta(context, d),
+                        ))
+                    .toList(),
+                selectedValue: _difficulty,
+                accentColor: AppColors.reverseMemory,
+                onChanged: (value) => setState(() => _difficulty = value),
+              ),
             ),
             const SizedBox(height: 48),
             SizedBox(
@@ -258,8 +417,7 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
           SizedBox(
             width: 200,
             child: LinearProgressIndicator(
-              value:
-                  _countdown / (3 + max(0, (_currentLength - 3) * 0.5)).ceil(),
+              value: _countdown / _roundDisplaySecs.ceil(),
               backgroundColor: AppColors.border,
               valueColor:
                   const AlwaysStoppedAnimation<Color>(AppColors.reverseMemory),
@@ -336,7 +494,10 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
           const SizedBox(height: 16),
           Text(
             correct
-                ? tr(context, 'صحيح!', 'Correct!', '正确!')
+                ? (_clearedChallenge
+                    ? tr(context, 'تم اجتياز التحدي! 🔥',
+                        'Challenge Cleared! 🔥', '挑战通关！🔥')
+                    : tr(context, 'صحيح!', 'Correct!', '正确!'))
                 : tr(context, 'خطأ! الإجابة كانت: ', 'Wrong! Answer was: ',
                         '错误！答案是：') +
                     (useArabicDigits(context)

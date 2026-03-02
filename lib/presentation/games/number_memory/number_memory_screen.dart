@@ -11,10 +11,14 @@ import '../../../core/utils/haptics.dart';
 import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../../common_widgets/difficulty_option_list.dart';
+import '../game_economy_helper.dart';
 import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
 enum _MemPhase { config, memorize, input, feedback }
+
+enum _NumberMemoryDifficulty { easy, medium, hard }
 
 class NumberMemoryScreen extends ConsumerStatefulWidget {
   const NumberMemoryScreen({super.key});
@@ -24,19 +28,84 @@ class NumberMemoryScreen extends ConsumerStatefulWidget {
 }
 
 class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
-  static const _maxLength = 10;
+  static const _absoluteMaxLength = 14;
 
   final _rng = Random();
   _MemPhase _phase = _MemPhase.config;
+  _NumberMemoryDifficulty _difficulty = _NumberMemoryDifficulty.medium;
 
   int _currentLength = 3;
   String _currentSequence = '';
   String _inputValue = '';
   bool _lastCorrect = false;
   int _maxReached = 0;
+  double _roundShowSecs = 3;
 
   Timer? _timer;
   int _countdown = 3; // seconds remaining during memorize phase
+
+  int _difficultyValue(_NumberMemoryDifficulty difficulty) =>
+      switch (difficulty) {
+        _NumberMemoryDifficulty.easy => 1,
+        _NumberMemoryDifficulty.medium => 2,
+        _NumberMemoryDifficulty.hard => 3,
+      };
+
+  int _startLengthFor(_NumberMemoryDifficulty difficulty) =>
+      switch (difficulty) {
+        _NumberMemoryDifficulty.easy => 3,
+        _NumberMemoryDifficulty.medium => 4,
+        _NumberMemoryDifficulty.hard => 5,
+      };
+
+  int _goalLengthFor(_NumberMemoryDifficulty difficulty) =>
+      switch (difficulty) {
+        _NumberMemoryDifficulty.easy => 8,
+        _NumberMemoryDifficulty.medium => 10,
+        _NumberMemoryDifficulty.hard => 12,
+      };
+
+  String _difficultyLabel(
+          BuildContext context, _NumberMemoryDifficulty difficulty) =>
+      switch (difficulty) {
+        _NumberMemoryDifficulty.easy => tr(context, 'سهل', 'Easy', '简单'),
+        _NumberMemoryDifficulty.medium => tr(context, 'متوسط', 'Medium', '中等'),
+        _NumberMemoryDifficulty.hard => tr(context, 'صعب', 'Hard', '困难'),
+      };
+
+  String _difficultyHint(
+          BuildContext context, _NumberMemoryDifficulty difficulty) =>
+      switch (difficulty) {
+        _NumberMemoryDifficulty.easy =>
+          tr(context, 'وقت أطول للحفظ', 'Longer memorize window', '记忆时间更充裕'),
+        _NumberMemoryDifficulty.medium =>
+          tr(context, 'تحدٍ متوازن', 'Balanced challenge', '平衡挑战'),
+        _NumberMemoryDifficulty.hard => tr(context, 'زمن حفظ أقصر ٣→٢ث',
+            'Tighter memorize window (3s -> 2s)', '更短记忆时间（3秒->2秒）'),
+      };
+
+  String _memorizeWindowLabel(
+          BuildContext context, _NumberMemoryDifficulty difficulty) =>
+      switch (difficulty) {
+        _NumberMemoryDifficulty.easy =>
+          tr(context, 'حفظ ٢.٨–٦.٨ث', 'Memorize 2.8-6.8s', '记忆 2.8-6.8 秒'),
+        _NumberMemoryDifficulty.medium =>
+          tr(context, 'حفظ ٢.٢–٥.٦ث', 'Memorize 2.2-5.6s', '记忆 2.2-5.6 秒'),
+        _NumberMemoryDifficulty.hard => tr(
+            context, 'حفظ ٣.٠→٢.٠ث', 'Memorize 3.0 -> 2.0s', '记忆 3.0 -> 2.0 秒'),
+      };
+
+  String _difficultyMeta(
+      BuildContext context, _NumberMemoryDifficulty difficulty) {
+    final start = _startLengthFor(difficulty);
+    final goal = _goalLengthFor(difficulty);
+    return tr(
+      context,
+      'بداية $start أرقام · هدف $goal · ${_memorizeWindowLabel(context, difficulty)}',
+      'Start $start digits · Goal $goal · ${_memorizeWindowLabel(context, difficulty)}',
+      '起始 $start 位 · 目标 $goal 位 · ${_memorizeWindowLabel(context, difficulty)}',
+    );
+  }
 
   @override
   void initState() {
@@ -54,9 +123,16 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
     super.dispose();
   }
 
-  void _startGame() {
+  Future<void> _startGame() async {
+    final canStart = await GameEconomyHelper.consumeEntryCost(
+      context,
+      ref,
+      GameType.numberMemory,
+    );
+    if (!canStart) return;
+
     setState(() {
-      _currentLength = 3;
+      _currentLength = _startLengthFor(_difficulty);
       _inputValue = '';
       _maxReached = 0;
       _phase = _MemPhase.config;
@@ -70,9 +146,16 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
         List.generate(_currentLength, (_) => _rng.nextInt(10).toString());
     _currentSequence = digits.join();
 
-    // Show duration: 3s for 3 digits, +0.5s per additional digit
-    final showSecs = 3 + max(0, (_currentLength - 3) * 0.5);
-    _countdown = showSecs.ceil();
+    final startLength = _startLengthFor(_difficulty);
+    _roundShowSecs = switch (_difficulty) {
+      _NumberMemoryDifficulty.easy =>
+        (2.8 + max(0, (_currentLength - startLength) * 0.55)).clamp(2.8, 6.8),
+      _NumberMemoryDifficulty.medium =>
+        (2.4 + max(0, (_currentLength - startLength) * 0.45)).clamp(2.2, 5.6),
+      _NumberMemoryDifficulty.hard =>
+        (3.0 - max(0, (_currentLength - startLength) * 0.20)).clamp(2.0, 3.0),
+    };
+    _countdown = _roundShowSecs.ceil();
 
     setState(() {
       _phase = _MemPhase.memorize;
@@ -110,7 +193,7 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
     if (correct) {
       Haptics.light();
       _maxReached = _currentLength;
-      _currentLength = min(_currentLength + 1, _maxLength);
+      _currentLength = min(_currentLength + 1, _absoluteMaxLength);
       setState(() {
         _phase = _MemPhase.feedback;
         _lastCorrect = true;
@@ -136,8 +219,13 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
       gameId: GameType.numberMemory.id,
       score: _maxReached.toDouble(),
       timestamp: DateTime.now(),
-      difficulty: 1,
-      metadata: {'maxLength': _maxReached},
+      difficulty: _difficultyValue(_difficulty),
+      metadata: {
+        'maxLength': _maxReached,
+        'selectedDifficulty': _difficultyValue(_difficulty),
+        'startLength': _startLengthFor(_difficulty),
+        'goalLength': _goalLengthFor(_difficulty),
+      },
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
@@ -145,6 +233,17 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
 
     final best = ref.read(bestScoreProvider(GameType.numberMemory.id));
     final isNewRecord = best == null || _maxReached >= best.score;
+    final won = _maxReached >= _goalLengthFor(_difficulty);
+    final performance =
+        (_maxReached / _goalLengthFor(_difficulty)).clamp(0.0, 1.0);
+    final economy = await GameEconomyHelper.settleGame(
+      ref,
+      gameType: GameType.numberMemory,
+      won: won,
+      difficulty: _difficultyValue(_difficulty),
+      isNewRecord: isNewRecord,
+      performance: performance.toDouble(),
+    );
 
     if (!mounted) return;
     context.pushReplacement(AppRoutes.result, extra: {
@@ -153,6 +252,12 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
       'metric': 'length',
       'lowerIsBetter': false,
       'isNewRecord': isNewRecord,
+      'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
+      'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
+      'economyWon': economy.won,
+      'economyCoins': economy.coinsGained,
+      'economyXp': economy.xpGained,
+      'economyLevel': economy.newLevel,
     });
   }
 
@@ -200,7 +305,7 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
 
   Widget _buildConfig(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -222,6 +327,28 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 14),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: DifficultyOptionList<_NumberMemoryDifficulty>(
+                options: _NumberMemoryDifficulty.values
+                    .map((d) => DifficultyOption(
+                          value: d,
+                          badge: switch (d) {
+                            _NumberMemoryDifficulty.easy => 'E',
+                            _NumberMemoryDifficulty.medium => 'M',
+                            _NumberMemoryDifficulty.hard => 'H',
+                          },
+                          title: _difficultyLabel(context, d),
+                          subtitle: _difficultyHint(context, d),
+                          details: _difficultyMeta(context, d),
+                        ))
+                    .toList(),
+                selectedValue: _difficulty,
+                accentColor: AppColors.numberMemory,
+                onChanged: (value) => setState(() => _difficulty = value),
+              ),
             ),
             const SizedBox(height: 48),
             SizedBox(
@@ -261,8 +388,7 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
           SizedBox(
             width: 200,
             child: LinearProgressIndicator(
-              value:
-                  _countdown / (3 + max(0, (_currentLength - 3) * 0.5).ceil()),
+              value: _countdown / _roundShowSecs.ceil(),
               backgroundColor: AppColors.border,
               valueColor:
                   const AlwaysStoppedAnimation<Color>(AppColors.numberMemory),

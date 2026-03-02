@@ -11,11 +11,15 @@ import '../../../core/utils/haptics.dart';
 import '../../../core/utils/tr.dart';
 import '../../../data/models/score_record.dart';
 import '../../../domain/enums/game_type.dart';
+import '../../common_widgets/difficulty_option_list.dart';
+import '../game_economy_helper.dart';
 import '../game_rules_helper.dart';
 import '../../providers/app_providers.dart';
 
 // ─── Phase ───────────────────────────────────────────────────────────────────
 enum _ChimpPhase { config, showing, recalling, levelSuccess }
+
+enum _ChimpDifficulty { easy, medium, hard }
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 class NumberMatrixScreen extends ConsumerStatefulWidget {
@@ -33,6 +37,7 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
 
   final _rng = Random();
   _ChimpPhase _phase = _ChimpPhase.config;
+  _ChimpDifficulty _difficulty = _ChimpDifficulty.medium;
 
   // Numbers placed in grid (null = empty cell)
   List<int?> _grid = List.filled(_total, null);
@@ -49,6 +54,91 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
   bool _flashCorrect = false;
 
   Timer? _successTimer;
+  Timer? _recallTimer;
+  int _recallTotalMs = 1;
+  int _recallLeftMs = 0;
+
+  int _difficultyValue(_ChimpDifficulty difficulty) => switch (difficulty) {
+        _ChimpDifficulty.easy => 1,
+        _ChimpDifficulty.medium => 2,
+        _ChimpDifficulty.hard => 3,
+      };
+
+  int _startLevelFor(_ChimpDifficulty difficulty) => switch (difficulty) {
+        _ChimpDifficulty.easy => 3,
+        _ChimpDifficulty.medium => 4,
+        _ChimpDifficulty.hard => 5,
+      };
+
+  int _goalLevelFor(_ChimpDifficulty difficulty) => switch (difficulty) {
+        _ChimpDifficulty.easy => 7,
+        _ChimpDifficulty.medium => 9,
+        _ChimpDifficulty.hard => 11,
+      };
+
+  int _recallLimitMsFor(int level) => switch (_difficulty) {
+        _ChimpDifficulty.easy => (4600 - (level - 3) * 180).clamp(2200, 4600),
+        _ChimpDifficulty.medium => (3400 - (level - 4) * 220).clamp(1600, 3400),
+        _ChimpDifficulty.hard => (2600 - (level - 5) * 240).clamp(1100, 2600),
+      };
+
+  String _difficultyLabel(BuildContext context, _ChimpDifficulty difficulty) =>
+      switch (difficulty) {
+        _ChimpDifficulty.easy => tr(context, 'سهل', 'Easy', '简单'),
+        _ChimpDifficulty.medium => tr(context, 'متوسط', 'Medium', '中等'),
+        _ChimpDifficulty.hard => tr(context, 'صعب', 'Hard', '困难'),
+      };
+
+  String _difficultyHint(BuildContext context, _ChimpDifficulty difficulty) =>
+      switch (difficulty) {
+        _ChimpDifficulty.easy => tr(context, 'بداية أسهل مع مهلة أطول',
+            'Lower start level with longer timer', '更低起始等级，时限更宽'),
+        _ChimpDifficulty.medium => tr(context, 'تحدٍ متوازن مع مؤقت',
+            'Balanced challenge with timer', '平衡挑战，含倒计时'),
+        _ChimpDifficulty.hard => tr(context, 'بداية أعلى ومؤقت أقصر',
+            'Higher start level and tighter timer', '更高起始等级，时限更短'),
+      };
+
+  String _difficultyMeta(BuildContext context, _ChimpDifficulty difficulty) {
+    final start = _startLevelFor(difficulty);
+    final goal = _goalLevelFor(difficulty);
+    return tr(
+      context,
+      'بداية مستوى $start · هدف $goal',
+      'Start level $start · Goal $goal',
+      '起始等级 $start · 目标 $goal',
+    );
+  }
+
+  void _stopRecallCountdown() {
+    _recallTimer?.cancel();
+    _recallTimer = null;
+    if (!mounted) return;
+    setState(() {
+      _recallLeftMs = 0;
+      _recallTotalMs = 1;
+    });
+  }
+
+  void _startRecallCountdown() {
+    _recallTimer?.cancel();
+    _recallTotalMs = _recallLimitMsFor(_level);
+    _recallLeftMs = _recallTotalMs;
+    _recallTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!mounted || _phase != _ChimpPhase.recalling) {
+        timer.cancel();
+        return;
+      }
+      final next = _recallLeftMs - 100;
+      if (next <= 0) {
+        timer.cancel();
+        setState(() => _recallLeftMs = 0);
+        _finishGame();
+        return;
+      }
+      setState(() => _recallLeftMs = next);
+    });
+  }
 
   @override
   void initState() {
@@ -63,13 +153,21 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
   @override
   void dispose() {
     _successTimer?.cancel();
+    _recallTimer?.cancel();
     super.dispose();
   }
 
   // ─── Game logic ────────────────────────────────────────────────────────────
 
-  void _startGame() {
-    _level = 4;
+  Future<void> _startGame() async {
+    final canStart = await GameEconomyHelper.consumeEntryCost(
+      context,
+      ref,
+      GameType.numberMatrix,
+    );
+    if (!canStart) return;
+
+    _level = _startLevelFor(_difficulty);
     _maxCompleted = 0;
     _startRound();
   }
@@ -87,6 +185,8 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
       _nextExpected = 1;
       _flashCell = null;
       _phase = _ChimpPhase.showing;
+      _recallTotalMs = 1;
+      _recallLeftMs = 0;
     });
   }
 
@@ -104,6 +204,7 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
           _flashCorrect = true;
           _phase = _ChimpPhase.recalling;
         });
+        _startRecallCountdown();
         Future.delayed(const Duration(milliseconds: 200), () {
           if (mounted) setState(() => _flashCell = null);
         });
@@ -141,6 +242,7 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
         setState(() => _flashCell = null);
         if (_nextExpected > _level) {
           // Level complete!
+          _stopRecallCountdown();
           _maxCompleted = _level;
           setState(() => _phase = _ChimpPhase.levelSuccess);
           _successTimer = Timer(const Duration(milliseconds: 900), () {
@@ -153,6 +255,7 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
       });
     } else {
       // Wrong
+      _stopRecallCountdown();
       Haptics.medium();
       setState(() {
         _flashCell = index;
@@ -166,13 +269,20 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
 
   Future<void> _finishGame() async {
     _successTimer?.cancel();
+    _recallTimer?.cancel();
     final score = _maxCompleted.toDouble();
     final record = ScoreRecord(
       gameId: GameType.numberMatrix.id,
       score: score,
       timestamp: DateTime.now(),
-      difficulty: (_level - 4).clamp(0, 10),
-      metadata: {'maxCompleted': _maxCompleted, 'failedAt': _level},
+      difficulty: _difficultyValue(_difficulty),
+      metadata: {
+        'maxCompleted': _maxCompleted,
+        'failedAt': _level,
+        'selectedDifficulty': _difficultyValue(_difficulty),
+        'startLevel': _startLevelFor(_difficulty),
+        'goalLevel': _goalLevelFor(_difficulty),
+      },
     );
 
     await ref.read(scoreRepoProvider).saveScore(record);
@@ -180,6 +290,17 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
 
     final best = ref.read(bestScoreProvider(GameType.numberMatrix.id));
     final isNewRecord = best == null || score >= best.score;
+    final won = _maxCompleted >= _goalLevelFor(_difficulty);
+    final performance =
+        (_maxCompleted / _goalLevelFor(_difficulty)).clamp(0.0, 1.0);
+    final economy = await GameEconomyHelper.settleGame(
+      ref,
+      gameType: GameType.numberMatrix,
+      won: won,
+      difficulty: _difficultyValue(_difficulty),
+      isNewRecord: isNewRecord,
+      performance: performance.toDouble(),
+    );
 
     if (!mounted) return;
     context.pushReplacement(AppRoutes.result, extra: {
@@ -188,6 +309,12 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
       'metric': 'length',
       'lowerIsBetter': false,
       'isNewRecord': isNewRecord,
+      'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
+      'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
+      'economyWon': economy.won,
+      'economyCoins': economy.coinsGained,
+      'economyXp': economy.xpGained,
+      'economyLevel': economy.newLevel,
     });
   }
 
@@ -237,7 +364,7 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
   // ── Config ────────────────────────────────────────────────────────────────
   Widget _buildConfig(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -261,6 +388,28 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
               style: AppTypography.bodyMedium
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 14),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: DifficultyOptionList<_ChimpDifficulty>(
+                options: _ChimpDifficulty.values
+                    .map((d) => DifficultyOption(
+                          value: d,
+                          badge: switch (d) {
+                            _ChimpDifficulty.easy => 'E',
+                            _ChimpDifficulty.medium => 'M',
+                            _ChimpDifficulty.hard => 'H',
+                          },
+                          title: _difficultyLabel(context, d),
+                          subtitle: _difficultyHint(context, d),
+                          details: _difficultyMeta(context, d),
+                        ))
+                    .toList(),
+                selectedValue: _difficulty,
+                accentColor: AppColors.numberMatrix,
+                onChanged: (value) => setState(() => _difficulty = value),
+              ),
             ),
             const SizedBox(height: 48),
             SizedBox(
@@ -327,6 +476,31 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
               ),
             ),
             const SizedBox(height: 20),
+            if (!isShowing) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  minHeight: 6,
+                  value:
+                      _recallTotalMs <= 0 ? 0 : _recallLeftMs / _recallTotalMs,
+                  backgroundColor: AppColors.border,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.numberMatrix),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                tr(
+                  context,
+                  'الوقت المتبقي: ${(_recallLeftMs / 1000).toStringAsFixed(1)}ث',
+                  'Time left: ${(_recallLeftMs / 1000).toStringAsFixed(1)}s',
+                  '剩余时间：${(_recallLeftMs / 1000).toStringAsFixed(1)} 秒',
+                ),
+                style: AppTypography.caption
+                    .copyWith(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 14),
+            ],
             // Grid
             AspectRatio(
               aspectRatio: _cols / _rows,

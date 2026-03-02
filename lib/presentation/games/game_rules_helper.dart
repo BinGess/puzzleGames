@@ -117,11 +117,11 @@ class GameRulesHelper {
             '• ابدأ من الرقم ١ ثم ٢ ثم ٣...\n'
             '• الضغط الخاطئ لا ينهي اللعبة لكنه يضيع الوقت.\n'
             '• سجلك الأفضل هو أقل زمن.',
-        GameType.reactionTime => 'الهدف: اختبر سرعة تفاعلك مع تأثير ستروب.\n'
+        GameType.reactionTime => 'الهدف: اختبر سرعة تفاعلك.\n'
             'القواعد:\n'
-            '• تظهر كلمة لون بلون مختلف.\n'
-            '• اضغط زر لون الخط الحقيقي وليس معنى الكلمة.\n'
-            '• النتيجة هي متوسط زمن الاستجابة بالأجزاء من الثانية.',
+            '• انتظر حتى تتحول الشاشة إلى اللون الأخضر.\n'
+            '• عند ظهور اللون الأخضر، اضغط فورًا بأسرع ما يمكن.\n'
+            '• النتيجة هي متوسط زمن الاستجابة بالمللي ثانية.',
         GameType.numberMemory =>
           'الهدف: تذكر سلسلة أرقام وإدخالها بنفس الترتيب.\n'
               'القواعد:\n'
@@ -176,11 +176,11 @@ class GameRulesHelper {
             '• 从 1 开始，然后 2、3...\n'
             '• 点错不会结束游戏，但会浪费时间。\n'
             '• 最佳成绩为最短时间。',
-        GameType.reactionTime => '目标：在斯特鲁普式挑战中测试反应速度。\n'
+        GameType.reactionTime => '目标：测试你的反应速度。\n'
             '规则：\n'
-            '• 会出现颜色词，字体颜色不同。\n'
-            '• 点击字体颜色对应的按钮，而非文字含义。\n'
-            '• 成绩为平均反应时间。',
+            '• 等待屏幕变成绿色。\n'
+            '• 屏幕一变绿，立刻点击。\n'
+            '• 成绩为平均反应时间（毫秒）。',
         GameType.numberMemory => '目标：记住数字序列并按相同顺序输入。\n'
             '规则：\n'
             '• 在消失前记住显示的序列。\n'
@@ -234,12 +234,11 @@ class GameRulesHelper {
             '• Start from 1, then 2, then 3...\n'
             '• Wrong taps do not end the game, but cost time.\n'
             '• Best score is the lowest time.',
-      GameType.reactionTime =>
-        'Goal: Test your reaction speed with a Stroop-style challenge.\n'
-            'Rules:\n'
-            '• A color word appears in a different font color.\n'
-            '• Tap the button for the font color, not the word meaning.\n'
-            '• Score is your average response time.',
+      GameType.reactionTime => 'Goal: Test your reaction speed.\n'
+          'Rules:\n'
+          '• Wait until the screen turns green.\n'
+          '• Tap immediately when green appears.\n'
+          '• Score is your average response time in milliseconds.',
       GameType.numberMemory =>
         'Goal: Memorize digits and enter them in the same order.\n'
             'Rules:\n'

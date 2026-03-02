@@ -35,7 +35,7 @@
 
   "reactionTimeName": "Reaction Time",
   "reactionTimeNameEn": "Reaction Time",
-  "reactionTimeDesc": "Tap the correct color button based on the font color — not the word meaning",
+  "reactionTimeDesc": "Wait for the screen to turn green, then tap as fast as possible",
 
   "numberMemoryName": "Number Memory",
   "numberMemoryNameEn": "Number Memory",

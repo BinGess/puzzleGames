@@ -1,0 +1,4 @@
+interface:
+  display_name: "Flutter Poster Share"
+  short_description: "Generate, save, and share poster images in Flutter"
+  default_prompt: "Use $flutter-poster-share to add poster generation, local image saving, and system image sharing to a Flutter result page."

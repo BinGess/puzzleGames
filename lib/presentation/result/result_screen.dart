@@ -90,6 +90,7 @@ double _stdDevScores(List<ScoreRecord> records, double mean) {
 }
 
 _PercentileEstimate _estimatePercentiles({
+  required GameType gameType,
   required double lq,
   required double currentScore,
   required bool lowerIsBetter,
@@ -146,10 +147,18 @@ _PercentileEstimate _estimatePercentiles({
   final blendWeight = 0.30 + 0.55 * confidence;
   final modelPercentile =
       (empirical + trendDelta + consistencyDelta).clamp(1.0, 99.0);
-  final global =
-      (baseGlobal * (1 - blendWeight) + modelPercentile * blendWeight)
-          .round()
-          .clamp(1, 99);
+  var global = (baseGlobal * (1 - blendWeight) + modelPercentile * blendWeight)
+      .round()
+      .clamp(1, 99);
+
+  // Tower of Hanoi has a known optimal move count: 2^n - 1.
+  // If user solves at theoretical optimum, percentile should never look mediocre.
+  final hanoiOptimal = gameType == GameType.towerOfHanoi
+      ? ((1 << (currentDifficulty + 2)) - 1).toDouble()
+      : null;
+  if (hanoiOptimal != null && currentScore <= hanoiOptimal + 1e-6) {
+    global = math.max(global, 95).toInt();
+  }
 
   int ageAdjust = 0;
   if (age != null) {
@@ -168,10 +177,13 @@ _PercentileEstimate _estimatePercentiles({
     (math.log(totalSessions + 1) / math.ln2).floor(),
   );
   final peerCentered = (50 + (global - 50) * 0.88).round();
-  final agePercentile =
+  var agePercentile =
       (peerCentered + ageAdjust + (experienceAdjust * 0.5).round())
           .round()
           .clamp(1, 99);
+  if (hanoiOptimal != null && currentScore <= hanoiOptimal + 1e-6) {
+    agePercentile = math.max(agePercentile, 96).toInt();
+  }
 
   return _PercentileEstimate(
     global: global,
@@ -477,9 +489,21 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
     final profile = ref.watch(profileProvider);
     final gameScores = ref.watch(gameScoresProvider(_gameType.id));
     final allScoresCount = ref.read(scoreRepoProvider).getAllScores().length;
-    final best = ref.read(bestScoreProvider(_gameType.id));
+    final bestByDifficulty = widget.data['bestByDifficulty'] as bool? ?? false;
+    final scopedDifficulty = (widget.data['difficulty'] as num?)?.toInt();
+    final bestPool = (bestByDifficulty && scopedDifficulty != null)
+        ? gameScores
+            .where((s) => s.difficulty == scopedDifficulty)
+            .toList(growable: false)
+        : gameScores;
+    final ScoreRecord? best = bestPool.isEmpty
+        ? null
+        : bestPool.reduce((a, b) => _gameType.lowerIsBetter
+            ? (a.score < b.score ? a : b)
+            : (a.score > b.score ? a : b));
     final lq = ability.lqScore;
     final percentileEstimate = _estimatePercentiles(
+      gameType: _gameType,
       lq: lq,
       currentScore: _score,
       lowerIsBetter: _gameType.lowerIsBetter,
@@ -489,6 +513,14 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
     );
     final tier = _lqTier(lq);
     final scoreLabel = _formatScore(_score, _metric);
+    final bonusLabel = widget.data['bonusLabel'] as String?;
+    final challengeTip = widget.data['challengeTip'] as String?;
+    final economyLabel = widget.data['economyLabel'] as String?;
+    final economyTip = widget.data['economyTip'] as String?;
+    final economyWon = widget.data['economyWon'] as bool? ?? false;
+    final economyCoins = (widget.data['economyCoins'] as num?)?.toInt() ?? 0;
+    final economyXp = (widget.data['economyXp'] as num?)?.toInt() ?? 0;
+    final economyLevel = (widget.data['economyLevel'] as num?)?.toInt();
 
     // Gap-to-best label
     String? gapLabel;
@@ -535,6 +567,14 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
                                   ? _formatScore(best.score, _metric)
                                   : null,
                               gapLabel: gapLabel,
+                              economyLabel: economyLabel,
+                              economyTip: economyTip,
+                              economyWon: economyWon,
+                              economyCoins: economyCoins,
+                              economyXp: economyXp,
+                              economyLevel: economyLevel,
+                              bonusLabel: bonusLabel,
+                              challengeTip: challengeTip,
                               isNewRecord: _isNewRecord,
                               accent: _accent,
                             ),
@@ -856,6 +896,14 @@ class _ScoreCard extends StatelessWidget {
   final String gameName;
   final String? bestLabel;
   final String? gapLabel;
+  final String? economyLabel;
+  final String? economyTip;
+  final bool economyWon;
+  final int economyCoins;
+  final int economyXp;
+  final int? economyLevel;
+  final String? bonusLabel;
+  final String? challengeTip;
   final bool isNewRecord;
   final Color accent;
 
@@ -864,12 +912,25 @@ class _ScoreCard extends StatelessWidget {
     required this.gameName,
     required this.bestLabel,
     required this.gapLabel,
+    required this.economyLabel,
+    required this.economyTip,
+    required this.economyWon,
+    required this.economyCoins,
+    required this.economyXp,
+    required this.economyLevel,
+    required this.bonusLabel,
+    required this.challengeTip,
     required this.isNewRecord,
     required this.accent,
   });
 
   @override
   Widget build(BuildContext context) {
+    final tipText = [
+      if (challengeTip != null) challengeTip!,
+      if (economyTip != null) economyTip!,
+    ].join('  ');
+
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -955,8 +1016,154 @@ class _ScoreCard extends StatelessWidget {
                 ),
               ],
             ],
+            if (economyLabel != null) ...[
+              const SizedBox(height: 8),
+              if (economyWon && (economyCoins > 0 || economyXp > 0))
+                TweenAnimationBuilder<double>(
+                  duration: const Duration(milliseconds: 950),
+                  curve: Curves.easeOutCubic,
+                  tween: Tween(begin: 0, end: 1),
+                  builder: (context, progress, _) {
+                    final coinsNow = (economyCoins * progress).round();
+                    final xpNow = (economyXp * progress).round();
+                    final levelUp = economyLevel != null && economyLevel! > 1;
+                    return Transform.scale(
+                      scale: 0.96 + (progress * 0.04),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          _RewardChip(
+                            icon: Icons.monetization_on_rounded,
+                            text: '+$coinsNow',
+                            color: AppColors.gold,
+                          ),
+                          _RewardChip(
+                            icon: Icons.bolt_rounded,
+                            text: '+$xpNow XP',
+                            color: const Color(0xFF69C6FF),
+                          ),
+                          if (levelUp)
+                            _RewardChip(
+                              icon: Icons.workspace_premium_rounded,
+                              text: 'Lv.${economyLevel!}',
+                              color: AppColors.sequenceMemory,
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                )
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.monetization_on_rounded,
+                        color: AppColors.gold, size: 14),
+                    const SizedBox(width: 5),
+                    Text(
+                      economyLabel!,
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textPrimary.withValues(alpha: 0.90),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+            if (bonusLabel != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.local_fire_department_rounded,
+                      color: AppColors.gold, size: 13),
+                  const SizedBox(width: 5),
+                  Text(
+                    bonusLabel!,
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textPrimary.withValues(alpha: 0.90),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (tipText.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: AppColors.background.withValues(alpha: 0.42),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.border, width: 0.5),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.trending_up_rounded,
+                      size: 14,
+                      color: accent.withValues(alpha: 0.95),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        tipText,
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RewardChip extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  const _RewardChip({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: color.withValues(alpha: 0.35),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 13),
+          const SizedBox(width: 5),
+          Text(
+            text,
+            style: AppTypography.caption.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

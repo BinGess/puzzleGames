@@ -264,7 +264,7 @@ abstract class AppL10n {
   /// No description provided for @reactionTimeDesc.
   ///
   /// In ar, this message translates to:
-  /// **'اضغط على اللون الصحيح بناءً على لون الخط — لا على معنى الكلمة'**
+  /// **'انتظر حتى تتحول الشاشة إلى اللون الأخضر ثم اضغط بأسرع ما يمكن'**
   String get reactionTimeDesc;
 
   /// No description provided for @numberMemoryName.
