@@ -299,14 +299,6 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.pin, color: AppColors.numberMemory, size: 64),
-            const SizedBox(height: 24),
-            Text(
-              tr(context, 'ذاكرة الأرقام', 'Number Memory', '数字记忆'),
-              style: AppTypography.headingMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
             Text(
               tr(
                   context,

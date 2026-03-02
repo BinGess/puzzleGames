@@ -15,7 +15,7 @@ abstract final class Haptics {
   static int get soundLevel => SoundEffects.volumeLevel;
   static void setSoundGameId(String gameId) => SoundEffects.setGameId(gameId);
 
-  /// Light tap (correct cell, button press)
+  /// Light feedback for in-game correct actions.
   static void light() {
     SoundEffects.confirm();
     if (!_hapticsEnabled) return;
@@ -36,7 +36,7 @@ abstract final class Haptics {
     HapticFeedback.heavyImpact();
   }
 
-  /// Selection click (menu tap, toggle)
+  /// Selection click for generic UI interactions (menu tap, toggle, button tap).
   static void selection() {
     SoundEffects.selection();
     if (!_hapticsEnabled) return;

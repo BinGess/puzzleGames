@@ -32,9 +32,17 @@ class DashboardScreen extends ConsumerWidget {
             slivers: [
               SliverAppBar(
                 pinned: true,
-                backgroundColor: Colors.transparent,
+                backgroundColor: const Color(0xFF0B0D1A),
+                surfaceTintColor: Colors.transparent,
                 elevation: 0,
                 scrolledUnderElevation: 0,
+                bottom: PreferredSize(
+                  preferredSize: const Size.fromHeight(0.5),
+                  child: Container(
+                    height: 0.5,
+                    color: AppColors.border.withValues(alpha: 0.24),
+                  ),
+                ),
                 title: Text(
                   l10n.appName,
                   style: AppTypography.headingMedium,

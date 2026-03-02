@@ -48,7 +48,7 @@ class GameCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            Haptics.light();
+            Haptics.selection();
             onTap();
           },
           borderRadius: BorderRadius.circular(22),

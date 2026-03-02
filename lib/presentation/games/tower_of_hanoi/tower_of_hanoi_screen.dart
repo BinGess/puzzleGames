@@ -336,13 +336,7 @@ class _TowerOfHanoiScreenState extends ConsumerState<TowerOfHanoiScreen>
                 diskCount: _diskCount,
               ),
             ),
-            const SizedBox(height: 28),
-            Text(
-              tr(context, 'برج هانو', 'Tower of Hanoi', '汉诺塔'),
-              style: AppTypography.headingMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 20),
             Text(
               tr(
                 context,

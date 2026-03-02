@@ -260,15 +260,6 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.grid_view,
-                color: AppColors.visualMemory, size: 64),
-            const SizedBox(height: 24),
-            Text(
-              tr(context, 'ذاكرة بصرية', 'Visual Memory', '视觉记忆'),
-              style: AppTypography.headingMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
             Text(
               tr(context, 'تذكّر المربعات التي أضاءت وحدد مواقعها',
                   'Remember which squares lit up and tap them', '记住亮起的方格并点击它们'),

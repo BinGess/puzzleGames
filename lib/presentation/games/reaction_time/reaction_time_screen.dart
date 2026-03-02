@@ -476,14 +476,6 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.bolt, color: AppColors.reaction, size: 64),
-            const SizedBox(height: 24),
-            Text(
-              tr(context, 'وقت التفاعل', 'Reaction Time', '反应时间'),
-              style: AppTypography.headingMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
             Text(
               tr(
                 context,

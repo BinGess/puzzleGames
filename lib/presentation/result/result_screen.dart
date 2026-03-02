@@ -458,7 +458,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
   // ─── Share ───────────────────────────────────────────────────────────────────
 
   void _showShareSheet(AbilitySnapshot ability, int globalPercentile) {
-    Haptics.light();
+    Haptics.selection();
     final l10n = AppL10n.of(context);
     final lq = ability.lqScore;
     final tier = _lqTier(lq);
@@ -625,7 +625,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
           const SizedBox(width: 12),
           GestureDetector(
             onTap: () {
-              Haptics.light();
+              Haptics.selection();
               context.go(AppRoutes.dashboard);
             },
             child: Container(
@@ -696,7 +696,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
             flex: 2,
             child: GestureDetector(
               onTap: () {
-                Haptics.medium();
+                Haptics.selection();
                 context.pushReplacement(AppRoutes.gameRoute(_gameType));
               },
               child: Container(
@@ -1773,7 +1773,7 @@ class _SharePreviewSheetState extends State<_SharePreviewSheet> {
   Future<void> _handleSave() async {
     if (_isSaving || _isSharing) return;
     setState(() => _isSaving = true);
-    Haptics.light();
+    Haptics.selection();
     final l10n = AppL10n.of(context);
 
     final saveSuccess = l10n.saveImageSuccess;
@@ -1820,7 +1820,7 @@ class _SharePreviewSheetState extends State<_SharePreviewSheet> {
     if (_isSharing || _isSaving) return;
     if (!mounted) return;
     setState(() => _isSharing = true);
-    Haptics.medium();
+    Haptics.selection();
 
     final shareSubject = tr(
       context,
@@ -1926,7 +1926,7 @@ class _SharePreviewSheetState extends State<_SharePreviewSheet> {
                     right: 0,
                     child: GestureDetector(
                       onTap: () {
-                        Haptics.light();
+                        Haptics.selection();
                         Navigator.of(context).pop();
                       },
                       child: Container(

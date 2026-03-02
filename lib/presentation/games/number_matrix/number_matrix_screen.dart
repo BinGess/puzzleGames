@@ -369,15 +369,6 @@ class _NumberMatrixScreenState extends ConsumerState<NumberMatrixScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.psychology,
-                color: AppColors.numberMatrix, size: 64),
-            const SizedBox(height: 24),
-            Text(
-              tr(context, 'اختبار الشمبانزي', 'Chimp Test', '猩猩测试'),
-              style: AppTypography.headingMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
             Text(
               tr(
                 context,

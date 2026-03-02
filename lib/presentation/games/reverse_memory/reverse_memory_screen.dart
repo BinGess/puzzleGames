@@ -315,15 +315,6 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.swap_horiz,
-                color: AppColors.reverseMemory, size: 64),
-            const SizedBox(height: 24),
-            Text(
-              tr(context, 'ذاكرة العكس', 'Reverse Memory', '数字倒序'),
-              style: AppTypography.headingMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
             Text(
               tr(
                   context,

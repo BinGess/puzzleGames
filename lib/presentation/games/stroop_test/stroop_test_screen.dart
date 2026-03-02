@@ -399,19 +399,10 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
   Widget _buildConfig(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.format_color_text,
-                color: AppColors.stroop, size: 64),
-            const SizedBox(height: 24),
-            Text(
-              tr(context, 'اختبار ستروب', 'Stroop Test', '斯特鲁普测试'),
-              style: AppTypography.headingMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
             Text(
               tr(
                   context,
@@ -422,7 +413,7 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
                   .copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 460),
               child: DifficultyOptionList<int>(
@@ -442,32 +433,7 @@ class _StroopTestScreenState extends ConsumerState<StroopTestScreen> {
                 onChanged: (value) => setState(() => _difficulty = value),
               ),
             ),
-            const SizedBox(height: 10),
-            Text(
-              tr(
-                context,
-                '${useArabicDigits(context) ? _totalStimuli.toArabicDigits() : _totalStimuli} سؤال · نقاط أسرع = مكافأة',
-                '$_totalStimuli questions · Faster answers earn bonus points',
-                '$_totalStimuli 题 · 反应越快积分越高',
-              ),
-              style: AppTypography.caption,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 4),
-            if (_difficulty > 1)
-              Text(
-                tr(
-                  context,
-                  'لكل سؤال حد زمني قصير',
-                  'Each round has a short time limit',
-                  '每题有短时限',
-                ),
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            const SizedBox(height: 48),
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

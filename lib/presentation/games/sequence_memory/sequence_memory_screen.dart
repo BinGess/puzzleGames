@@ -369,14 +369,6 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.apps, color: AppColors.sequenceMemory, size: 64),
-            const SizedBox(height: 24),
-            Text(
-              tr(context, 'تسلسل', 'Sequence Memory', '序列记忆'),
-              style: AppTypography.headingMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
             Text(
               tr(
                   context,

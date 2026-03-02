@@ -40,7 +40,7 @@ class GoldButton extends StatelessWidget {
         ),
         child: ElevatedButton(
           onPressed: () {
-            Haptics.light();
+            Haptics.selection();
             onPressed();
           },
           style: ElevatedButton.styleFrom(
