@@ -317,13 +317,13 @@ class _VisualMemoryScreenState extends ConsumerState<VisualMemoryScreen> {
                   ),
                   DifficultyOption(
                     value: 3,
-                    badge: tr(context, '٥×٥+', '5×5+', '5×5+'),
+                    badge: tr(context, '٥×٥', '5×5', '5×5'),
                     title: tr(context, 'صعب', 'Hard', '困难'),
                     subtitle: tr(
                       context,
-                      '٥×٥ مع ألوان تشويش أثناء العرض',
-                      '5×5 with distractor colors while showing',
-                      '5×5 且展示阶段有干扰色',
+                      'اضغط البنفسجي، والأخضر لون تشويش',
+                      'Tap purple cells; green is decoy',
+                      '点击紫色，绿色为干扰色',
                     ),
                     details: tr(
                       context,

@@ -192,10 +192,10 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
     });
   }
 
-  void _stopTargetMovement() {
+  void _stopTargetMovement({bool resetVelocity = true}) {
     _targetMoveTimer?.cancel();
     _targetMoveTimer = null;
-    _targetVelocity = Offset.zero;
+    if (resetVelocity) _targetVelocity = Offset.zero;
   }
 
   void _maybeInitTarget(Rect arenaRect) {
@@ -242,11 +242,14 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
   }
 
   void _startTargetMovement() {
-    _stopTargetMovement();
+    _stopTargetMovement(resetVelocity: false);
     if (_difficulty != _ReactionDifficulty.hard ||
         _targetTopLeft == null ||
         _readyAreaSize == Size.zero) {
       return;
+    }
+    if (_targetVelocity.distanceSquared < 0.0001) {
+      _targetVelocity = _randomTargetVelocity();
     }
 
     _targetMoveTimer = Timer.periodic(const Duration(milliseconds: 18), (t) {
@@ -569,7 +572,8 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             const horizontalPadding = 20.0;
-            const topSectionHeight = 150.0;
+            final topSectionHeight =
+                (constraints.maxHeight * 0.30).clamp(170.0, 210.0);
             const bottomPadding = 28.0;
             final arenaRect = Rect.fromLTWH(
               horizontalPadding,
@@ -618,7 +622,7 @@ class _ReactionTimeScreenState extends ConsumerState<ReactionTimeScreen> {
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 12),
                       Text(
                         _usesTargetCircle
                             ? tr(

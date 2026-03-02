@@ -71,23 +71,12 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
 
   String _difficultyHint(BuildContext context, _ReverseDifficulty difficulty) =>
       switch (difficulty) {
-        _ReverseDifficulty.easy => tr(context, 'حفظ مريح وبداية قصيرة',
-            'Calmer pace, shorter strings', '节奏更稳，起始更短'),
-        _ReverseDifficulty.medium => tr(context, 'ضغط متوازن مع تقلص الوقت',
-            'Balanced pressure with shrinking time', '平衡压力，时间逐步收紧'),
-        _ReverseDifficulty.hard => tr(context, 'زمن حفظ أقصر (حوالي ٢–٣ث)',
-            'Short memorize window (about 2-3s)', '更短记忆时间（约2-3秒）'),
-      };
-
-  String _memorizeWindowLabel(
-          BuildContext context, _ReverseDifficulty difficulty) =>
-      switch (difficulty) {
-        _ReverseDifficulty.easy =>
-          tr(context, 'حفظ ٤.٨–٢.٤ث', 'Memorize 4.8-2.4s', '记忆 4.8-2.4 秒'),
-        _ReverseDifficulty.medium =>
-          tr(context, 'حفظ ٤.٢–١.٦ث', 'Memorize 4.2-1.6s', '记忆 4.2-1.6 秒'),
-        _ReverseDifficulty.hard =>
-          tr(context, 'حفظ حوالي ٢–٣ث', 'Memorize about 2-3s', '记忆约 2-3 秒'),
+        _ReverseDifficulty.easy => tr(context, 'إيقاع ثابت وبداية قصيرة',
+            'Steady pace, shorter strings', '节奏稳定，起始更短'),
+        _ReverseDifficulty.medium => tr(context, 'ضغط متوازن في الطول',
+            'Balanced pressure on sequence length', '长度压力更均衡'),
+        _ReverseDifficulty.hard => tr(context, 'سلاسل أطول وتحدٍ أعلى',
+            'Longer chains, higher challenge', '序列更长，挑战更高'),
       };
 
   String _difficultyMeta(BuildContext context, _ReverseDifficulty difficulty) {
@@ -95,9 +84,9 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
     final goal = _goalLengthFor(difficulty);
     return tr(
       context,
-      'بداية $start أرقام · هدف $goal · ${_memorizeWindowLabel(context, difficulty)}',
-      'Start $start digits · Goal $goal · ${_memorizeWindowLabel(context, difficulty)}',
-      '起始 $start 位 · 目标 $goal 位 · ${_memorizeWindowLabel(context, difficulty)}',
+      'بداية $start أرقام · هدف $goal',
+      'Start $start digits · Goal $goal',
+      '起始 $start 位 · 目标 $goal 位',
     );
   }
 
@@ -264,9 +253,9 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
             )
           : tr(
               context,
-              'كلما زاد الطول، يقل وقت الحفظ. واصل التحدي!',
-              'As length grows, memorize time shrinks. Keep pushing!',
-              '位数越高，记忆时间越短，继续挑战！',
+              'واصل التدريب لرفع أقصى طول يمكن عكسه.',
+              'Keep training to push your maximum reverse length.',
+              '继续训练，提升你的最大倒序长度。',
             ),
       'economyLabel': GameEconomyHelper.buildRewardLabel(context, economy),
       'economyTip': GameEconomyHelper.buildRewardTip(context, economy),
@@ -349,9 +338,9 @@ class _ReverseMemoryScreenState extends ConsumerState<ReverseMemoryScreen> {
             Text(
               tr(
                 context,
-                'التحدي يمتد حسب الصعوبة المختارة، والوقت يقل تدريجيًا',
-                'Challenge length depends on selected difficulty, and display time shrinks each round',
-                '挑战长度取决于难度，展示时间会逐步缩短',
+                'التحدي يمتد حسب الصعوبة المختارة',
+                'Challenge length depends on selected difficulty',
+                '挑战长度取决于所选难度',
               ),
               style: AppTypography.caption
                   .copyWith(color: AppColors.textSecondary),

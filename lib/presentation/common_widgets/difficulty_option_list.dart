@@ -33,7 +33,7 @@ class DifficultyOptionList<T> extends StatelessWidget {
     required this.selectedValue,
     required this.onChanged,
     required this.accentColor,
-    this.spacing = 10,
+    this.spacing = 14,
   });
 
   @override
@@ -80,7 +80,7 @@ class _DifficultyOptionTile<T> extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
-        padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+        padding: const EdgeInsets.fromLTRB(16, 16, 14, 16),
         decoration: BoxDecoration(
           gradient: selected
               ? LinearGradient(
@@ -94,7 +94,7 @@ class _DifficultyOptionTile<T> extends StatelessWidget {
               : const LinearGradient(
                   colors: [Color(0xFF1C1C28), Color(0xFF111118)],
                 ),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected ? accentColor : AppColors.border,
             width: selected ? 1.4 : 0.7,
@@ -113,14 +113,14 @@ class _DifficultyOptionTile<T> extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 52,
-              height: 52,
+              width: 56,
+              height: 56,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: selected
                     ? accentColor.withValues(alpha: 0.16)
                     : AppColors.surfaceElevated,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: selected
                       ? accentColor.withValues(alpha: 0.75)
@@ -136,7 +136,7 @@ class _DifficultyOptionTile<T> extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,36 +148,34 @@ class _DifficultyOptionTile<T> extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 6),
                   Text(
                     option.subtitle,
                     style: AppTypography.bodySmall.copyWith(
                       color: subtitleColor,
+                      height: 1.55,
                     ),
                   ),
                   if (option.details != null) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
                     Text(
                       option.details!,
                       style: AppTypography.caption.copyWith(
                         color: AppColors.textSecondary,
-                        fontSize: 12,
+                        height: 1.45,
                       ),
                     ),
                   ],
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                size: 20,
-                color: selected ? accentColor : AppColors.textDisabled,
-              ),
+            const SizedBox(width: 10),
+            Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              size: 21,
+              color: selected ? accentColor : AppColors.textDisabled,
             ),
           ],
         ),

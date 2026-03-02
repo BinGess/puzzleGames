@@ -115,8 +115,11 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
             '3×3 with slower playback', '3×3，播放节奏更慢'),
         _SequenceDifficulty.medium =>
           tr(context, '٤×٤ بإيقاع متوازن', '4×4 balanced rhythm', '4×4，平衡节奏'),
-        _SequenceDifficulty.hard => tr(context, '٥×٥ + ألوان تشويش',
-            '5×5 + distractor flashes', '5×5 + 干扰色闪烁'),
+        _SequenceDifficulty.hard => tr(
+            context,
+            'اضغط المسار البنفسجي، والأخضر للتشتيت',
+            'Tap the purple path; green is distraction',
+            '点击紫色轨迹，绿色为干扰'),
       };
 
   String _difficultyMeta(BuildContext context, _SequenceDifficulty difficulty) {
@@ -394,7 +397,7 @@ class _SequenceMemoryScreenState extends ConsumerState<SequenceMemoryScreen> {
                           badge: switch (d) {
                             _SequenceDifficulty.easy => '3×3',
                             _SequenceDifficulty.medium => '4×4',
-                            _SequenceDifficulty.hard => '5×5+',
+                            _SequenceDifficulty.hard => '5×5',
                           },
                           title: _difficultyLabel(context, d),
                           subtitle: _difficultyHint(context, d),

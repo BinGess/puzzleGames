@@ -77,22 +77,11 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
           BuildContext context, _NumberMemoryDifficulty difficulty) =>
       switch (difficulty) {
         _NumberMemoryDifficulty.easy =>
-          tr(context, 'وقت أطول للحفظ', 'Longer memorize window', '记忆时间更充裕'),
-        _NumberMemoryDifficulty.medium =>
-          tr(context, 'تحدٍ متوازن', 'Balanced challenge', '平衡挑战'),
-        _NumberMemoryDifficulty.hard => tr(context, 'زمن حفظ أقصر (حوالي ٢–٣ث)',
-            'Short memorize window (about 2-3s)', '更短记忆时间（约2-3秒）'),
-      };
-
-  String _memorizeWindowLabel(
-          BuildContext context, _NumberMemoryDifficulty difficulty) =>
-      switch (difficulty) {
-        _NumberMemoryDifficulty.easy =>
-          tr(context, 'حفظ ٢.٨–٦.٨ث', 'Memorize 2.8-6.8s', '记忆 2.8-6.8 秒'),
-        _NumberMemoryDifficulty.medium =>
-          tr(context, 'حفظ ٢.٢–٥.٦ث', 'Memorize 2.2-5.6s', '记忆 2.2-5.6 秒'),
-        _NumberMemoryDifficulty.hard =>
-          tr(context, 'حفظ حوالي ٢–٣ث', 'Memorize about 2-3s', '记忆约 2-3 秒'),
+          tr(context, 'إيقاع دخول مريح', 'Gentle onboarding pace', '入门节奏更平稳'),
+        _NumberMemoryDifficulty.medium => tr(context, 'تحدٍ متوازن في الطول',
+            'Balanced length challenge', '长度挑战更均衡'),
+        _NumberMemoryDifficulty.hard => tr(context, 'ضغط أعلى وسلسلة أطول',
+            'Higher pressure, longer chains', '压力更高，序列更长'),
       };
 
   String _difficultyMeta(
@@ -101,9 +90,9 @@ class _NumberMemoryScreenState extends ConsumerState<NumberMemoryScreen> {
     final goal = _goalLengthFor(difficulty);
     return tr(
       context,
-      'بداية $start أرقام · هدف $goal · ${_memorizeWindowLabel(context, difficulty)}',
-      'Start $start digits · Goal $goal · ${_memorizeWindowLabel(context, difficulty)}',
-      '起始 $start 位 · 目标 $goal 位 · ${_memorizeWindowLabel(context, difficulty)}',
+      'بداية $start أرقام · هدف $goal',
+      'Start $start digits · Goal $goal',
+      '起始 $start 位 · 目标 $goal 位',
     );
   }
 
